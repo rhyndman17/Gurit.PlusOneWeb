@@ -1,0 +1,6 @@
+--> Backup (full database for EOY rollover)
+--> Backup DLL
+--> Apply updated SQL objects
+--> Make sure the proc update is in HNNZL also
+--> Add the additional parameters in the config file
+--> Test connections

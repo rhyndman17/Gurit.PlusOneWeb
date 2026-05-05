@@ -1,0 +1,46 @@
+{
+  "Sites": {
+    "NZ": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "gap",
+      "Password": "your_password_here",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": ".\\local-test\\NZ\\Download",
+      "DownloadArchivePath": ".\\local-test\\NZ\\Download\\Archive",
+      "LogFilePath": ".\\local-test\\NZ\\PlusOneDownload.log",
+      "LocalUploadPath": ".\\local-test\\NZ\\Upload",
+      "UploadArchivePath": ".\\local-test\\NZ\\Upload\\Archive",
+      "UploadLogFilePath": ".\\local-test\\NZ\\PlusOneUpload.log",
+      "ExtractLogFilePath": ".\\local-test\\NZ\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=localhost;Database=PlusOneTestNZ;Trusted_Connection=yes;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    },
+    "AU": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "guritaus",
+      "Password": "your_password_here",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": ".\\local-test\\AU\\Download",
+      "DownloadArchivePath": ".\\local-test\\AU\\Download\\Archive",
+      "LogFilePath": ".\\local-test\\AU\\PlusOneDownload.log",
+      "LocalUploadPath": ".\\local-test\\AU\\Upload",
+      "UploadArchivePath": ".\\local-test\\AU\\Upload\\Archive",
+      "UploadLogFilePath": ".\\local-test\\AU\\PlusOneUpload.log",
+      "ExtractLogFilePath": ".\\local-test\\AU\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=localhost;Database=PlusOneTestAU;Trusted_Connection=yes;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    }
+  }
+}

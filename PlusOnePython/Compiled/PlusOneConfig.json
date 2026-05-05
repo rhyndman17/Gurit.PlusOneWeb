@@ -1,0 +1,46 @@
+{
+  "Sites": {
+    "NZ": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "gap",
+      "Password": "7n8#nG5%O1a$QTgw!Kuc",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/test-outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\Download\\",
+      "DownloadArchivePath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\Download\\Archive\\",
+      "LogFilePath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\PlusOneDownload.log",
+      "LocalUploadPath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\Upload\\",
+      "UploadArchivePath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\UploadArchive\\",
+      "UploadLogFilePath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\PlusOneUpload.log",
+      "ExtractLogFilePath": "C:\\Users\\RobertHyndman\\OneDrive - Altara Limited\\Customers\\Gurit\\Projects\\PlusOne Enhancements 2026\\Source Process Folders\\PlusOneWorkspace\\NZ\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/test-inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=ROBERTHYNDMAN-D\\SQLEXPRESS;Database=PlusOne;User Id=sa;Password=altara17!@;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    },
+    "AU": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "guritaus",
+      "Password": "gu6NR1CnHjJxKGTX3trb",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\AU\\Download\\",
+      "DownloadArchivePath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\Download\\AU\\Archive\\",
+      "LogFilePath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\AU\\PlusOneDownload.log",
+      "LocalUploadPath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\AU\\upload\\",
+      "UploadArchivePath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\Download\\AU\\UploadArchive\\",
+      "UploadLogFilePath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\AU\\PlusOneUpload.log",
+      "ExtractLogFilePath": "\\\\NZAUCSVR016\\DynamicsGP\\GPShare\\PlusOneWorkspace\\AU\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=NZAUCSVR005;Database=HMAUD;User Id=GPSysAdmin;Password=Guritgp23!@;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    }
+  }
+}

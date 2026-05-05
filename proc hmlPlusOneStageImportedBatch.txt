@@ -1,0 +1,162 @@
+USE [HMNZL]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE OR ALTER PROC [dbo].[hmlPlusOneStageImportedBatch]
+    @ImportBatchID uniqueidentifier
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @StartedTransaction bit;
+    SET @StartedTransaction = 0;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.hmlPlusOneInvoiceLine
+        WHERE ImportBatchID = @ImportBatchID
+    )
+    BEGIN
+        RAISERROR('No imported PlusOne lines were found for the supplied batch.', 16, 1);
+        RETURN;
+    END;
+
+    IF @@TRANCOUNT = 0
+    BEGIN
+        BEGIN TRAN;
+        SET @StartedTransaction = 1;
+    END
+    ELSE
+    BEGIN
+        SAVE TRAN StageImportedBatch;
+    END;
+
+    BEGIN TRY
+        ;WITH HeaderSource AS (
+            SELECT
+                l.ImportBatchID,
+                RTRIM(l.SupplierID) AS SupplierID,
+                RTRIM(UPPER(l.DocumentNo)) AS DocumentNo,
+                MAX(l.DocumentDate) AS DocumentDate,
+                MAX(l.AccountingValueDate) AS AccountingValueDate,
+                MAX(l.ImageURL) AS ImageURL,
+                MAX(l.FileName) AS FileName
+            FROM dbo.hmlPlusOneInvoiceLine l
+            WHERE l.ImportBatchID = @ImportBatchID
+            GROUP BY
+                l.ImportBatchID,
+                RTRIM(l.SupplierID),
+                RTRIM(UPPER(l.DocumentNo))
+        )
+        INSERT INTO dbo.hmlPlusOneInvoiceHeader (
+            ImportBatchID,
+            SupplierID,
+            DocumentDate,
+            AccountingValueDate,
+            DocumentNo,
+            ImageURL,
+            Status,
+            Processed,
+            FileName,
+            GPVoucherNumber,
+            GPBatchID,
+            HeaderMessage,
+            CreatedDateTime,
+            LastUpdatedDateTime
+        )
+        SELECT
+            hs.ImportBatchID,
+            hs.SupplierID,
+            hs.DocumentDate,
+            hs.AccountingValueDate,
+            hs.DocumentNo,
+            hs.ImageURL,
+            0,
+            NULL,
+            hs.FileName,
+            NULL,
+            NULL,
+            NULL,
+            GETDATE(),
+            GETDATE()
+        FROM HeaderSource hs
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM dbo.hmlPlusOneInvoiceHeader h
+            WHERE h.ImportBatchID = hs.ImportBatchID
+              AND RTRIM(h.SupplierID) = hs.SupplierID
+              AND RTRIM(h.DocumentNo) = hs.DocumentNo
+        );
+
+        UPDATE h
+        SET
+            h.DocumentDate = src.DocumentDate,
+            h.AccountingValueDate = src.AccountingValueDate,
+            h.ImageURL = src.ImageURL,
+            h.FileName = src.FileName,
+            h.LastUpdatedDateTime = GETDATE()
+        FROM dbo.hmlPlusOneInvoiceHeader h
+        INNER JOIN (
+            SELECT
+                l.ImportBatchID,
+                RTRIM(l.SupplierID) AS SupplierID,
+                RTRIM(UPPER(l.DocumentNo)) AS DocumentNo,
+                MAX(l.DocumentDate) AS DocumentDate,
+                MAX(l.AccountingValueDate) AS AccountingValueDate,
+                MAX(l.ImageURL) AS ImageURL,
+                MAX(l.FileName) AS FileName
+            FROM dbo.hmlPlusOneInvoiceLine l
+            WHERE l.ImportBatchID = @ImportBatchID
+            GROUP BY
+                l.ImportBatchID,
+                RTRIM(l.SupplierID),
+                RTRIM(UPPER(l.DocumentNo))
+        ) src
+            ON h.ImportBatchID = src.ImportBatchID
+           AND RTRIM(h.SupplierID) = src.SupplierID
+           AND RTRIM(h.DocumentNo) = src.DocumentNo;
+
+        UPDATE l
+        SET
+            l.SupplierID = RTRIM(l.SupplierID),
+            l.DocumentNo = RTRIM(UPPER(l.DocumentNo)),
+            l.InvoiceHeaderID = h.InvoiceHeaderID,
+            l.Status = 0,
+            l.Processed = NULL,
+            l.ErrorState = NULL,
+            l.LineMessage = NULL,
+            l.LastUpdatedDateTime = GETDATE()
+        FROM dbo.hmlPlusOneInvoiceLine l
+        INNER JOIN dbo.hmlPlusOneInvoiceHeader h
+            ON h.ImportBatchID = l.ImportBatchID
+           AND RTRIM(h.SupplierID) = RTRIM(l.SupplierID)
+           AND RTRIM(h.DocumentNo) = RTRIM(UPPER(l.DocumentNo))
+        WHERE l.ImportBatchID = @ImportBatchID;
+
+        IF @StartedTransaction = 1
+        BEGIN
+            COMMIT TRAN;
+        END;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+        BEGIN
+            IF @StartedTransaction = 1
+            BEGIN
+                ROLLBACK TRAN;
+            END
+            ELSE IF XACT_STATE() = 1
+            BEGIN
+                ROLLBACK TRAN StageImportedBatch;
+            END;
+        END;
+
+        THROW;
+    END CATCH;
+END
+GO

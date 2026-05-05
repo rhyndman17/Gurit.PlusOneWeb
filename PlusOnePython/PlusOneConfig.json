@@ -1,0 +1,46 @@
+{
+  "Sites": {
+    "NZ": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "gap",
+      "Password": "7n8#nG5%O1a$QTgw!Kuc",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/test-outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": "C:\\_______PlusOne\\NZ\\Download\\",
+      "DownloadArchivePath": "C:\\_______PlusOne\\NZ\\Download\\Archive\\",
+      "LogFilePath": "C:\\_______PlusOne\\NZ\\PlusOneDownload.log",
+      "LocalUploadPath": "C:\\_______PlusOne\\NZ\\Upload\\",
+      "UploadArchivePath": "C:\\_______PlusOne\\NZ\\UploadArchive\\",
+      "UploadLogFilePath": "C:\\_______PlusOne\\NZ\\PlusOneUpload.log",
+      "ExtractLogFilePath": "C:\\_______PlusOne\\NZ\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/test-inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=GuritNZ;Database=HMNZL;User Id=sa;Password=altara17!@;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    },
+    "AU": {
+      "SftpHost": "filexchange.sublimegroup.net",
+      "SftpPort": 12223,
+      "Username": "guritaus",
+      "Password": "gu6NR1CnHjJxKGTX3trb",
+      "HostKeyFingerprint": "ssh-ed25519 256 kb8ikc1RWOMCpbEsXUlunKcc0z8pLJBT/rEYU37G3wQ=",
+      "RemoteDownloadDirectory": "/test-outbound",
+      "RemoteDownloadFilter": "*.csv",
+      "LocalDownloadPath": "C:\\_______PlusOne\\AU\\Download\\",
+      "DownloadArchivePath": "C:\\_______PlusOne\\AU\\Download\\Archive\\",
+      "LogFilePath": "C:\\_______PlusOne\\AU\\PlusOneDownload.log",
+      "LocalUploadPath": "C:\\_______PlusOne\\AU\\Upload\\",
+      "UploadArchivePath": "C:\\_______PlusOne\\AU\\UploadArchive\\",
+      "UploadLogFilePath": "C:\\_______PlusOne\\AU\\PlusOneUpload.log",
+      "ExtractLogFilePath": "C:\\_______PlusOne\\AU\\PlusOneExtract.log",
+      "RemoteUploadDirectory": "/test-inbound",
+      "RemoteUploadFilter": "*.csv",
+      "SqlConnectionString": "Server=GuritNZ;Database=HMAUD;User Id=sa;Password=altara17!@;",
+      "SqlCommandTimeout": 120,
+      "SqlBulkInsertTimeout": 120
+    }
+  }
+}

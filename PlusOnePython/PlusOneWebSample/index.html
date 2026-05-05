@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlusOne Control</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #d8dee6;
+      --line-strong: #b6c0cc;
+      --text: #17202a;
+      --muted: #607080;
+      --accent: #176b87;
+      --accent-dark: #0f4f64;
+      --good: #1f7a4d;
+      --warn: #a45c00;
+      --bad: #aa2e25;
+      --soft-blue: #e7f3f7;
+      --soft-green: #e9f7ef;
+      --soft-amber: #fff4df;
+      --soft-red: #fdecea;
+      --shadow: 0 8px 22px rgba(23, 32, 42, 0.08);
+      --radius: 8px;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 220px;
+    }
+
+    .mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #176b87 0%, #35a18b 100%);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.1;
+    }
+
+    .env {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #fff;
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--good);
+    }
+
+    .toolbar-band {
+      background: #edf1f5;
+      border-bottom: 1px solid var(--line);
+      padding: 14px 22px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    select,
+    input[type="date"] {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 7px 9px;
+    }
+
+    .check-row {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 8px 13px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      background: var(--accent-dark);
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+    }
+
+    main {
+      padding: 18px 22px 24px;
+      display: grid;
+      grid-template-columns: minmax(520px, 1.25fr) minmax(340px, 0.75fr);
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .summary-strip {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 13px 14px;
+      min-height: 76px;
+    }
+
+    .metric-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .metric-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .staging-workspace {
+      grid-template-rows: auto minmax(230px, 0.58fr) minmax(210px, 0.42fr);
+    }
+
+    .panel-head {
+      min-height: 48px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .tabs {
+      display: flex;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .tab {
+      border: 0;
+      border-right: 1px solid var(--line-strong);
+      border-radius: 0;
+      min-height: 32px;
+      padding: 6px 11px;
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .tab:last-child {
+      border-right: 0;
+    }
+
+    .tab.active {
+      background: var(--soft-blue);
+      color: var(--accent-dark);
+    }
+
+    .grid-wrap {
+      overflow: auto;
+      min-height: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      border-bottom-color: var(--line-strong);
+    }
+
+    tbody tr:hover {
+      background: #f8fbfd;
+    }
+
+    tbody tr.selected {
+      background: #e7f3f7;
+    }
+
+    .detail-head {
+      min-height: 42px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fbfcfd;
+    }
+
+    .detail-title {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .detail-note {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .select-col {
+      width: 42px;
+      min-width: 42px;
+      text-align: center;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 23px;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.good {
+      color: var(--good);
+      background: var(--soft-green);
+    }
+
+    .badge.warn {
+      color: var(--warn);
+      background: var(--soft-amber);
+    }
+
+    .badge.bad {
+      color: var(--bad);
+      background: var(--soft-red);
+    }
+
+    .side-stack {
+      display: grid;
+      grid-template-rows: minmax(260px, 0.72fr) minmax(220px, 0.58fr);
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .job-list {
+      overflow: auto;
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .job {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 11px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+    }
+
+    .job-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .job-name {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .job-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bar {
+      height: 8px;
+      background: #e3e8ee;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      width: 76%;
+      background: var(--accent);
+    }
+
+    .log {
+      margin: 0;
+      padding: 12px 14px;
+      overflow: auto;
+      min-height: 0;
+      background: #101820;
+      color: #d7e1ea;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1060px) {
+      .toolbar {
+        grid-template-columns: repeat(3, minmax(150px, 1fr));
+      }
+
+      .button-row {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .side-stack {
+        grid-template-rows: auto auto;
+      }
+    }
+
+    @media (max-width: 720px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .header-actions {
+        justify-content: flex-start;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      main,
+      .toolbar-band,
+      header {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="brand">
+        <div class="mark">P1</div>
+        <div>
+          <h1>PlusOne Control</h1>
+          <div class="env">Dynamics GP integration runner</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="status-pill"><span class="dot"></span> SQL connected</span>
+        <span class="status-pill">Last run 05 May 2026 13:42</span>
+      </div>
+    </header>
+
+    <section class="toolbar-band">
+      <div class="toolbar">
+        <label>
+          Site
+          <select id="site">
+            <option>NZ</option>
+            <option>AU</option>
+          </select>
+        </label>
+        <label>
+          Action
+          <select id="action">
+            <option>Download and import</option>
+            <option>Extract</option>
+            <option>Upload</option>
+          </select>
+        </label>
+        <label>
+          Extraction
+          <select id="extraction">
+            <option>All</option>
+            <option>GLM</option>
+            <option>SUP</option>
+            <option>PUR</option>
+          </select>
+        </label>
+        <label>
+          Run date
+          <input type="date" value="2026-05-05">
+        </label>
+        <label>
+          Options
+          <span class="check-row"><input type="checkbox"> What if</span>
+        </label>
+        <div class="button-row">
+          <button class="btn">Refresh</button>
+          <button class="btn primary" id="runJob">Run</button>
+        </div>
+      </div>
+    </section>
+
+    <main>
+      <section class="summary-strip" aria-label="Run summary">
+        <div class="metric">
+          <div class="metric-title">Queued files</div>
+          <div class="metric-value">7</div>
+          <div class="metric-note">4 NZ, 3 AU</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">Imported lines</div>
+          <div class="metric-value">1,284</div>
+          <div class="metric-note">Today</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">Validation holds</div>
+          <div class="metric-value">3</div>
+          <div class="metric-note">Needs review</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">Outbound ready</div>
+          <div class="metric-value">12</div>
+          <div class="metric-note">GLM, SUP, PUR</div>
+        </div>
+      </section>
+
+      <section class="workspace staging-workspace">
+        <div class="panel-head">
+          <h2>Invoice Staging</h2>
+          <div class="tabs">
+            <button class="tab active">Headers</button>
+            <button class="tab">Lines</button>
+            <button class="tab">Messages</button>
+          </div>
+        </div>
+        <div class="grid-wrap">
+          <table>
+            <thead>
+              <tr data-doc="INV-84291" tabindex="0">
+                <th class="select-col"><input type="checkbox" id="selectAll" aria-label="Select all invoices"></th>
+                <th>Batch</th>
+                <th>Site</th>
+                <th>Supplier</th>
+                <th>Document</th>
+                <th>Document date</th>
+                <th class="num">Lines</th>
+                <th class="num">Value</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-doc="CN-20551" tabindex="0">
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-84291"></td>
+                <td>INV-GAP-20260505-A</td>
+                <td>NZ</td>
+                <td>SUP1003</td>
+                <td>INV-84291</td>
+                <td>2026-05-03</td>
+                <td class="num">8</td>
+                <td class="num">4,921.66</td>
+                <td><span class="badge good">Ready</span></td>
+              </tr>
+              <tr data-doc="INV-19374" tabindex="0">
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select CN-20551"></td>
+                <td>INV-GAP-20260505-A</td>
+                <td>NZ</td>
+                <td>SUP0881</td>
+                <td>CN-20551</td>
+                <td>2026-05-03</td>
+                <td class="num">2</td>
+                <td class="num">-184.00</td>
+                <td><span class="badge good">Ready</span></td>
+              </tr>
+              <tr data-doc="INV-55901" tabindex="0">
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-19374"></td>
+                <td>INV-GAP-20260505-B</td>
+                <td>AU</td>
+                <td>SUP1442</td>
+                <td>INV-19374</td>
+                <td>2026-05-04</td>
+                <td class="num">17</td>
+                <td class="num">21,880.10</td>
+                <td><span class="badge warn">Hold</span></td>
+              </tr>
+              <tr data-doc="INV-90402" tabindex="0">
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-55901"></td>
+                <td>INV-GAP-20260505-B</td>
+                <td>AU</td>
+                <td>SUP0729</td>
+                <td>INV-55901</td>
+                <td>2026-05-04</td>
+                <td class="num">4</td>
+                <td class="num">771.25</td>
+                <td><span class="badge bad">Error</span></td>
+              </tr>
+              <tr data-doc="INV-90416" tabindex="0">
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-90402"></td>
+                <td>INV-GAP-20260505-C</td>
+                <td>NZ</td>
+                <td>SUP1098</td>
+                <td>INV-90402</td>
+                <td>2026-05-05</td>
+                <td class="num">6</td>
+                <td class="num">3,307.44</td>
+                <td><span class="badge good">Ready</span></td>
+              </tr>
+              <tr>
+                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-90416"></td>
+                <td>INV-GAP-20260505-C</td>
+                <td>NZ</td>
+                <td>SUP1227</td>
+                <td>INV-90416</td>
+                <td>2026-05-05</td>
+                <td class="num">3</td>
+                <td class="num">1,046.80</td>
+                <td><span class="badge warn">Hold</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="detail-head">
+          <div>
+            <div class="detail-title">Selected Invoice Lines</div>
+            <div class="detail-note" id="lineDetailNote">Click a header row to review its lines.</div>
+          </div>
+          <span class="status-pill" id="lineCount">0 lines</span>
+        </div>
+        <div class="grid-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th class="num">Line</th>
+                <th>Ledger</th>
+                <th>PO</th>
+                <th>Description</th>
+                <th class="num">Qty</th>
+                <th class="num">Ex GST</th>
+                <th class="num">GST</th>
+              </tr>
+            </thead>
+            <tbody id="lineRows">
+              <tr>
+                <td colspan="8">No invoice selected.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="side-stack">
+        <section class="workspace">
+          <div class="panel-head">
+            <h2>Runs</h2>
+            <button class="btn">Open log</button>
+          </div>
+          <div class="job-list">
+            <article class="job">
+              <div class="job-top">
+                <div>
+                  <div class="job-name">Download and import - NZ</div>
+                  <div class="job-meta">Started 13:42 by RHYNDMAN</div>
+                </div>
+                <span class="badge good">Running</span>
+              </div>
+              <div class="bar"><span></span></div>
+            </article>
+            <article class="job">
+              <div class="job-top">
+                <div>
+                  <div class="job-name">Extract - AU - GLM</div>
+                  <div class="job-meta">Completed 12:58</div>
+                </div>
+                <span class="badge good">Done</span>
+              </div>
+            </article>
+            <article class="job">
+              <div class="job-top">
+                <div>
+                  <div class="job-name">Upload - NZ</div>
+                  <div class="job-meta">Failed 12:44</div>
+                </div>
+                <span class="badge bad">Failed</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <div class="panel-head">
+            <h2>Live Log</h2>
+            <span class="status-pill">plusone.exe</span>
+          </div>
+          <pre class="log" id="log">[2026-05-05 13:42:01] [INFO] Loading PlusOneConfig.json
+[2026-05-05 13:42:01] [INFO] Site NZ selected
+[2026-05-05 13:42:02] [INFO] Connecting to SFTP
+[2026-05-05 13:42:04] [INFO] Downloaded INV-GAP-20260505-A.csv
+[2026-05-05 13:42:05] [INFO] Parsed 428 invoice rows
+[2026-05-05 13:42:07] [INFO] Staging import in progress...</pre>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const runButton = document.getElementById("runJob");
+    const log = document.getElementById("log");
+    const siteSelect = document.getElementById("site");
+    const selectAll = document.getElementById("selectAll");
+    const rowSelects = [...document.querySelectorAll(".row-select")];
+    const headerRows = [...document.querySelectorAll("tr[data-doc]")];
+    const lineRows = document.getElementById("lineRows");
+    const lineDetailNote = document.getElementById("lineDetailNote");
+    const lineCount = document.getElementById("lineCount");
+
+    const linesByDocument = {
+      "INV-84291": [
+        ["INV-84291", 1, "6110", "PO-44721", "Freight services", 1, "820.00", "123.00"],
+        ["INV-84291", 2, "6225", "PO-44721", "Packing materials", 12, "1,440.00", "216.00"],
+        ["INV-84291", 3, "7110", "PO-44722", "Plant maintenance", 4, "2,018.66", "303.00"]
+      ],
+      "CN-20551": [
+        ["CN-20551", 1, "6110", "PO-44692", "Freight credit", 1, "-160.00", "-24.00"]
+      ],
+      "INV-19374": [
+        ["INV-19374", 1, "7015", "PO-99201", "Resin delivery", 8, "9,840.00", "984.00"],
+        ["INV-19374", 2, "7015", "PO-99201", "Resin surcharge", 1, "1,120.00", "112.00"],
+        ["INV-19374", 3, "6340", "PO-99208", "Site consumables", 22, "3,214.10", "321.41"]
+      ],
+      "INV-55901": [
+        ["INV-55901", 1, "6330", "", "Missing PO number", 2, "670.65", "100.60"]
+      ],
+      "INV-90402": [
+        ["INV-90402", 1, "7205", "PO-45044", "Engineering labour", 6, "2,874.30", "431.15"],
+        ["INV-90402", 2, "6120", "PO-45044", "Courier charges", 1, "1.99", "0.00"]
+      ],
+      "INV-90416": [
+        ["INV-90416", 1, "7150", "PO-45062", "Calibration service", 1, "910.26", "136.54"]
+      ]
+    };
+
+    const initialSite = new URLSearchParams(window.location.search).get("site");
+    if (["NZ", "AU"].includes(initialSite)) {
+      siteSelect.value = initialSite;
+    }
+
+    selectAll.addEventListener("change", () => {
+      rowSelects.forEach((checkbox) => {
+        checkbox.checked = selectAll.checked;
+      });
+    });
+
+    rowSelects.forEach((checkbox) => {
+      checkbox.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+
+      checkbox.addEventListener("change", () => {
+        const checkedCount = rowSelects.filter((item) => item.checked).length;
+        selectAll.checked = checkedCount === rowSelects.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < rowSelects.length;
+      });
+    });
+
+    headerRows.forEach((row) => {
+      row.addEventListener("click", () => {
+        renderInvoiceLines(row.dataset.doc);
+      });
+
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          renderInvoiceLines(row.dataset.doc);
+        }
+      });
+    });
+
+    function renderInvoiceLines(document) {
+      headerRows.forEach((row) => {
+        row.classList.toggle("selected", row.dataset.doc === document);
+      });
+
+      const rows = linesByDocument[document] || [];
+      lineCount.textContent = `${rows.length} line${rows.length === 1 ? "" : "s"}`;
+      lineDetailNote.textContent = `Showing lines for ${document}.`;
+      lineRows.innerHTML = rows.map((line) => `
+        <tr>
+          <td>${line[0]}</td>
+          <td class="num">${line[1]}</td>
+          <td>${line[2]}</td>
+          <td>${line[3] || "-"}</td>
+          <td>${line[4]}</td>
+          <td class="num">${line[5]}</td>
+          <td class="num">${line[6]}</td>
+          <td class="num">${line[7]}</td>
+        </tr>
+      `).join("");
+    }
+
+    runButton.addEventListener("click", () => {
+      const site = siteSelect.value;
+      const action = document.getElementById("action").value;
+      const selectedCount = rowSelects.filter((item) => item.checked).length;
+      const scope = selectedCount ? `${selectedCount} selected invoice(s)` : "all eligible invoices";
+      const line = `[2026-05-05 13:42:12] [INFO] Queued ${action} for ${site} - ${scope}`;
+      log.textContent = `${log.textContent}\n${line}`;
+      log.scrollTop = log.scrollHeight;
+    });
+  </script>
+</body>
+</html>

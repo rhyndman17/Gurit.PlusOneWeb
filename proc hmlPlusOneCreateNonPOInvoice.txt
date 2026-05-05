@@ -1,0 +1,44 @@
+USE [HMNZL]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE OR ALTER PROC [dbo].[hmlPlusOneCreateNonPOInvoice]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @InvoiceHeaderID int;
+
+    DECLARE curProcessReadyHeaders CURSOR LOCAL FAST_FORWARD FOR
+        SELECT h.InvoiceHeaderID
+        FROM dbo.hmlPlusOneInvoiceHeader h
+        WHERE h.Status = 0
+        ORDER BY h.CreatedDateTime, h.InvoiceHeaderID;
+
+    OPEN curProcessReadyHeaders;
+
+    FETCH NEXT FROM curProcessReadyHeaders INTO @InvoiceHeaderID;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        BEGIN TRY
+            EXEC dbo.hmlPlusOneProcessInvoiceHeader
+                @InvoiceHeaderID = @InvoiceHeaderID,
+                @BatchID = 'PLUSONE';
+        END TRY
+        BEGIN CATCH
+            PRINT ERROR_MESSAGE();
+        END CATCH;
+
+        FETCH NEXT FROM curProcessReadyHeaders INTO @InvoiceHeaderID;
+    END;
+
+    CLOSE curProcessReadyHeaders;
+    DEALLOCATE curProcessReadyHeaders;
+END
+GO

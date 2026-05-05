@@ -1,0 +1,20 @@
+Looking for advice first:
+Scenario: The client connects to the PlusOne folder to download files for processing in the ERP system. The files are copied to a source folder on the network.  The file contents which may be more than one invoice is processed to the ERP system.  Errors are reported and returned back - the system lacks robust error reporting.
+
+If the file is successful after no SQL errors, text file errors or ERP validated errors the file is moved to archive. If there are any failures the file stays in the queue and the errors are loosley reported.
+
+There are two download sites which WinSCP is used. The new process would still use this but do not want to rely on the version of WinSCP that is installed.  
+
+Each download site will process to a different database - see the old config file for details on this, there is a NZPlusOne and a AUPlusOne params and each one has the DB noted.
+
+Review the solution files where the interface is the client facing to get an idea on more detailed process.
+
+For advice I will ask this:
+* I want to remove the reliance on the code on the interface as distribution and testing of compiled code can be onerous for this customer. The UI in the ERP will just call the PS script but would like to have realtime logging in there for the user to see what’s happening
+* I want to put the download logic into powershell 
+* The downloaded files should get imported straight into a staging table and from there the user interface takes over. The file information along with status and file references should be captured, if the file produces an error on import this needs to be captured somwhow the user can review. All files successfull or fail should go into one folder for backup. Provide the best method for this as the file error may not be able to display the content.  Or should the file attempt to import into the ERP straight away and the user only deals with exceptions/Errors?
+* I need very robust error handling, capturing any text/csv reading errors, general SQL errors and SQL rollback when processing to the ERP (see proc hmlPlusOneCreateNonPOInvoice). The one to create the SQL rollback on ERP would come from the new interface?
+* There is also an element of upload, which is user generated.  See the solution files show the various upload tasks. My idea will be that this is a separate PS script that SQL could run on a timed basis so there is no user intervention needed, again this will be separated by NZ and AU plusOne uploads
+
+Let me know if you have any additional questions to make this a robust solution.  Please provide any other insights and recommendations
+
