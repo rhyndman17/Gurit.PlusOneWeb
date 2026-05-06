@@ -3,27 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PlusOne Control</title>
+  <title>PlusOne Invoice Processing</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f6f8;
-      --panel: #ffffff;
-      --line: #d8dee6;
-      --line-strong: #b6c0cc;
-      --text: #17202a;
-      --muted: #607080;
-      --accent: #176b87;
-      --accent-dark: #0f4f64;
-      --good: #1f7a4d;
-      --warn: #a45c00;
-      --bad: #aa2e25;
-      --soft-blue: #e7f3f7;
-      --soft-green: #e9f7ef;
-      --soft-amber: #fff4df;
-      --soft-red: #fdecea;
-      --shadow: 0 8px 22px rgba(23, 32, 42, 0.08);
-      --radius: 8px;
+      --bg: #f3f5f7;
+      --surface: #ffffff;
+      --surface-subtle: #f8fafb;
+      --border: #d8dee5;
+      --border-strong: #b8c2cc;
+      --text: #18212b;
+      --muted: #5d6b78;
+      --brand: #176b87;
+      --brand-dark: #0f4f64;
+      --ok: #1f7a4d;
+      --busy: #7b5a00;
+      --error: #aa2e25;
+      --ok-bg: #e8f5ee;
+      --busy-bg: #fff4d8;
+      --error-bg: #fdecea;
+      --selected: #e6f3f7;
+      --shadow: 0 8px 22px rgba(24, 33, 43, 0.08);
+      --header-panel-min: 480px;
+      --header-panel-max: clamp(480px, 52vh, 590px);
+      --line-panel-min: 190px;
       font-family: "Segoe UI", Arial, sans-serif;
     }
 
@@ -31,10 +34,16 @@
       box-sizing: border-box;
     }
 
+    html,
+    body {
+      height: 100%;
+    }
+
     body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
+      overflow: hidden;
     }
 
     button,
@@ -44,15 +53,18 @@
     }
 
     .app-shell {
-      min-height: 100vh;
+      height: 100vh;
+      min-height: 0;
       display: grid;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      overflow: hidden;
     }
 
     header {
-      background: #ffffff;
-      border-bottom: 1px solid var(--line);
-      padding: 14px 22px;
+      min-height: 64px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -63,14 +75,14 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      min-width: 220px;
+      min-width: 260px;
     }
 
     .mark {
       width: 36px;
       height: 36px;
       border-radius: 7px;
-      background: linear-gradient(135deg, #176b87 0%, #35a18b 100%);
+      background: #176b87;
       color: #fff;
       display: grid;
       place-items: center;
@@ -78,55 +90,82 @@
       letter-spacing: 0;
     }
 
-    h1 {
+    h1,
+    h2 {
       margin: 0;
+      line-height: 1.2;
+    }
+
+    h1 {
       font-size: 19px;
-      line-height: 1.1;
+    }
+
+    h2 {
+      font-size: 15px;
     }
 
     .env {
       color: var(--muted);
       font-size: 12px;
-      margin-top: 3px;
+      margin-top: 2px;
     }
 
-    .header-actions {
+    .header-actions,
+    .button-row,
+    .panel-actions,
+    .detail-meta {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
+      gap: 9px;
       flex-wrap: wrap;
     }
 
     .status-pill {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 7px;
-      border: 1px solid var(--line);
+      min-height: 30px;
+      border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 7px 11px;
       background: #fff;
       color: var(--muted);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
       white-space: nowrap;
-      font-size: 13px;
     }
 
     .dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: var(--good);
+      background: var(--ok);
     }
 
     .toolbar-band {
-      background: #edf1f5;
-      border-bottom: 1px solid var(--line);
-      padding: 14px 22px;
+      background: #edf1f4;
+      border-bottom: 1px solid var(--border);
+      padding: 13px 20px;
+    }
+
+    .lock-banner {
+      display: none;
+      border-bottom: 1px solid #e0b4ad;
+      background: #fdecea;
+      color: #7f241d;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .lock-banner.show {
+      display: block;
     }
 
     .toolbar {
       display: grid;
-      grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+      grid-template-columns: minmax(130px, 160px) minmax(190px, 240px) minmax(240px, 1fr) auto;
       gap: 12px;
       align-items: end;
     }
@@ -136,100 +175,193 @@
       gap: 5px;
       color: var(--muted);
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     select,
-    input[type="date"] {
+    .search-input,
+    .multi-trigger {
       width: 100%;
       min-height: 36px;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--border-strong);
       border-radius: 6px;
       background: #fff;
       color: var(--text);
       padding: 7px 9px;
     }
 
-    .check-row {
-      height: 36px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 500;
+    .search-input {
+      padding-left: 31px;
     }
 
-    .button-row {
+    .search-wrap,
+    .multi-select {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .multi-trigger {
       display: flex;
-      gap: 8px;
-      justify-content: flex-end;
       align-items: center;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .multi-trigger::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg) translateY(-2px);
+      flex: 0 0 auto;
+    }
+
+    .multi-menu {
+      position: absolute;
+      z-index: 5;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      display: none;
+      padding: 7px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .multi-select.open .multi-menu {
+      display: grid;
+      gap: 4px;
+    }
+
+    .check-option {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 5px;
+      padding: 5px 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .check-option:hover {
+      background: var(--surface-subtle);
+    }
+
+    input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--brand);
+    }
+
+    input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+    }
+
+    .select-col {
+      width: 42px;
+      min-width: 42px;
+      text-align: center;
     }
 
     .btn {
       min-height: 36px;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--border-strong);
       border-radius: 6px;
       padding: 8px 13px;
       background: #fff;
       color: var(--text);
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
       white-space: nowrap;
     }
 
+    .btn:hover {
+      border-color: var(--brand);
+    }
+
     .btn.primary {
-      border-color: var(--accent);
-      background: var(--accent);
+      border-color: var(--brand);
+      background: var(--brand);
       color: #fff;
     }
 
     .btn.primary:hover {
-      background: var(--accent-dark);
+      background: var(--brand-dark);
     }
 
-    .btn:hover {
-      border-color: var(--accent);
+    .btn:disabled {
+      border-color: var(--border);
+      background: #eef2f5;
+      color: var(--muted);
+      cursor: not-allowed;
     }
 
     main {
-      padding: 18px 22px 24px;
-      display: grid;
-      grid-template-columns: minmax(520px, 1.25fr) minmax(340px, 0.75fr);
-      grid-template-rows: auto 1fr;
-      gap: 16px;
       min-height: 0;
+      padding: 16px 20px 22px;
+      display: grid;
+      grid-template-columns: minmax(680px, 1fr) minmax(560px, 720px);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .invoice-area {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(var(--line-panel-min), 1fr);
+      gap: 14px;
+      overflow: hidden;
     }
 
     .summary-strip {
-      grid-column: 1 / -1;
       display: grid;
-      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
       gap: 12px;
     }
 
-    .metric {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
+    .metric,
+    .workspace {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       box-shadow: var(--shadow);
-      padding: 13px 14px;
-      min-height: 76px;
+    }
+
+    .metric {
+      min-height: 74px;
+      padding: 12px 13px;
     }
 
     .metric-title {
       color: var(--muted);
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 6px;
     }
 
     .metric-value {
-      font-size: 24px;
+      font-size: 23px;
       line-height: 1.1;
-      font-weight: 700;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
     }
 
     .metric-note {
@@ -239,79 +371,45 @@
     }
 
     .workspace {
-      display: grid;
-      grid-template-rows: auto 1fr;
       min-height: 0;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
       overflow: hidden;
     }
 
-    .staging-workspace {
-      grid-template-rows: auto minmax(230px, 0.58fr) minmax(210px, 0.42fr);
+    .header-workspace {
+      min-height: var(--header-panel-min);
+      max-height: var(--header-panel-max);
     }
 
     .panel-head {
       min-height: 48px;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--line);
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
 
-    h2 {
-      margin: 0;
-      font-size: 15px;
-      line-height: 1.2;
-    }
-
-    .tabs {
-      display: flex;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .tab {
-      border: 0;
-      border-right: 1px solid var(--line-strong);
-      border-radius: 0;
-      min-height: 32px;
-      padding: 6px 11px;
-      background: #fff;
-      color: var(--muted);
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .tab:last-child {
-      border-right: 0;
-    }
-
-    .tab.active {
-      background: var(--soft-blue);
-      color: var(--accent-dark);
-    }
-
     .grid-wrap {
-      overflow: auto;
       min-height: 0;
+      overflow: auto;
     }
 
     table {
       width: 100%;
+      min-width: 1180px;
       border-collapse: collapse;
-      min-width: 780px;
+    }
+
+    .line-table {
+      min-width: 720px;
     }
 
     th,
     td {
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid var(--border);
       padding: 9px 10px;
       text-align: left;
       font-size: 13px;
@@ -322,11 +420,16 @@
       position: sticky;
       top: 0;
       z-index: 1;
-      background: #f8fafc;
+      background: var(--surface-subtle);
       color: var(--muted);
       font-size: 12px;
-      font-weight: 700;
-      border-bottom-color: var(--line-strong);
+      font-weight: 750;
+      border-bottom-color: var(--border-strong);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      cursor: pointer;
     }
 
     tbody tr:hover {
@@ -334,46 +437,29 @@
     }
 
     tbody tr.selected {
-      background: #e7f3f7;
+      background: var(--selected);
     }
 
-    .detail-head {
-      min-height: 42px;
-      padding: 10px 14px;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      background: #fbfcfd;
-    }
-
-    .detail-title {
-      font-weight: 700;
-      font-size: 13px;
-    }
-
-    .detail-note {
+    tbody tr.disabled {
       color: var(--muted);
-      font-size: 12px;
+      cursor: default;
+    }
+
+    tbody tr.disabled:hover {
+      background: transparent;
     }
 
     .num {
       text-align: right;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
-    .select-col {
-      width: 42px;
-      min-width: 42px;
-      text-align: center;
-    }
-
-    input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      accent-color: var(--accent);
+    .text-clip {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .badge {
@@ -384,95 +470,56 @@
       border-radius: 999px;
       padding: 3px 9px;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 750;
       white-space: nowrap;
     }
 
-    .badge.good {
-      color: var(--good);
-      background: var(--soft-green);
+    .badge.ready,
+    .badge.processed {
+      color: var(--ok);
+      background: var(--ok-bg);
     }
 
-    .badge.warn {
-      color: var(--warn);
-      background: var(--soft-amber);
+    .badge.processing {
+      color: var(--busy);
+      background: var(--busy-bg);
     }
 
-    .badge.bad {
-      color: var(--bad);
-      background: var(--soft-red);
-    }
-
-    .side-stack {
-      display: grid;
-      grid-template-rows: minmax(260px, 0.72fr) minmax(220px, 0.58fr);
-      gap: 16px;
-      min-height: 0;
-    }
-
-    .job-list {
-      overflow: auto;
-      padding: 12px;
-      display: grid;
-      align-content: start;
-      gap: 10px;
-    }
-
-    .job {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 11px;
-      background: #fff;
-      display: grid;
-      gap: 8px;
-    }
-
-    .job-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .job-name {
-      font-weight: 700;
-      font-size: 13px;
-    }
-
-    .job-meta {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .bar {
-      height: 8px;
-      background: #e3e8ee;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .bar span {
-      display: block;
-      height: 100%;
-      width: 76%;
-      background: var(--accent);
+    .badge.error {
+      color: var(--error);
+      background: var(--error-bg);
     }
 
     .log {
       margin: 0;
-      padding: 12px 14px;
-      overflow: auto;
       min-height: 0;
-      background: #101820;
-      color: #d7e1ea;
+      height: 100%;
+      max-height: 100%;
+      overflow: auto;
+      background: #111a22;
+      color: #dbe6ee;
       font-family: Consolas, "Courier New", monospace;
       font-size: 12px;
       line-height: 1.55;
+      padding: 12px 13px;
     }
 
-    @media (max-width: 1060px) {
+    .log-workspace {
+      min-height: 0;
+      height: 100%;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .log-workspace .log {
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 980px) {
       .toolbar {
-        grid-template-columns: repeat(3, minmax(150px, 1fr));
+        grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) auto;
       }
 
       .button-row {
@@ -480,23 +527,24 @@
         justify-content: flex-start;
       }
 
-      main {
-        grid-template-columns: 1fr;
+      .summary-strip {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
       }
 
-      .side-stack {
-        grid-template-rows: auto auto;
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(260px, 0.5fr);
+      }
+
+      .invoice-area {
+        grid-template-rows: auto auto minmax(var(--line-panel-min), 0.8fr);
       }
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 680px) {
       header {
         align-items: flex-start;
         flex-direction: column;
-      }
-
-      .header-actions {
-        justify-content: flex-start;
       }
 
       .toolbar {
@@ -504,14 +552,15 @@
       }
 
       .summary-strip {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
       }
 
-      main,
+      header,
       .toolbar-band,
-      header {
-        padding-left: 14px;
-        padding-right: 14px;
+      .lock-banner,
+      main {
+        padding-left: 12px;
+        padding-right: 12px;
       }
     }
   </style>
@@ -522,13 +571,13 @@
       <div class="brand">
         <div class="mark">P1</div>
         <div>
-          <h1>PlusOne Control</h1>
-          <div class="env">Dynamics GP integration runner</div>
+          <h1>PlusOne Invoice Processing</h1>
+          <div class="env">Download and import invoices</div>
         </div>
       </div>
       <div class="header-actions">
-        <span class="status-pill"><span class="dot"></span> SQL connected</span>
-        <span class="status-pill">Last run 05 May 2026 13:42</span>
+        <span class="status-pill"><span class="dot"></span> Connected</span>
+        <span class="status-pill">Last import 05 May 2026 13:42</span>
       </div>
     </header>
 
@@ -542,343 +591,723 @@
           </select>
         </label>
         <label>
-          Action
-          <select id="action">
-            <option>Download and import</option>
-            <option>Extract</option>
-            <option>Upload</option>
-          </select>
+          Status
+          <div class="multi-select" id="statusFilter">
+            <button class="multi-trigger" id="statusTrigger" type="button" aria-expanded="false">All statuses</button>
+            <div class="multi-menu" aria-label="Status filters">
+              <label class="check-option"><input type="checkbox" value="Ready" checked> Ready</label>
+              <label class="check-option"><input type="checkbox" value="Processing" checked> Processing</label>
+              <label class="check-option"><input type="checkbox" value="Processed"> Processed</label>
+              <label class="check-option"><input type="checkbox" value="Error" checked> Error</label>
+            </div>
+          </div>
         </label>
-        <label>
-          Extraction
-          <select id="extraction">
-            <option>All</option>
-            <option>GLM</option>
-            <option>SUP</option>
-            <option>PUR</option>
-          </select>
-        </label>
-        <label>
-          Run date
-          <input type="date" value="2026-05-05">
-        </label>
-        <label>
-          Options
-          <span class="check-row"><input type="checkbox"> What if</span>
+        <label class="search-wrap">
+          Search
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10.5 18a7.5 7.5 0 1 1 5.3-12.8 7.5 7.5 0 0 1-5.3 12.8Zm0-2a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm6.1.2 4.1 4.1-1.4 1.4-4.1-4.1 1.4-1.4Z" fill="currentColor"></path>
+          </svg>
+          <input class="search-input" id="headerSearch" type="search" placeholder="Search headers">
         </label>
         <div class="button-row">
-          <button class="btn">Refresh</button>
-          <button class="btn primary" id="runJob">Run</button>
+          <button class="btn" id="refresh">Refresh</button>
+          <button class="btn primary" id="downloadImport">Download</button>
         </div>
       </div>
     </section>
 
+    <div class="lock-banner" id="lockBanner"></div>
+
     <main>
-      <section class="summary-strip" aria-label="Run summary">
-        <div class="metric">
-          <div class="metric-title">Queued files</div>
-          <div class="metric-value">7</div>
-          <div class="metric-note">4 NZ, 3 AU</div>
-        </div>
-        <div class="metric">
-          <div class="metric-title">Imported lines</div>
-          <div class="metric-value">1,284</div>
-          <div class="metric-note">Today</div>
-        </div>
-        <div class="metric">
-          <div class="metric-title">Validation holds</div>
-          <div class="metric-value">3</div>
-          <div class="metric-note">Needs review</div>
-        </div>
-        <div class="metric">
-          <div class="metric-title">Outbound ready</div>
-          <div class="metric-value">12</div>
-          <div class="metric-note">GLM, SUP, PUR</div>
-        </div>
-      </section>
+      <div class="invoice-area">
+        <section class="summary-strip" aria-label="Invoice summary">
+          <div class="metric">
+            <div class="metric-title">Ready</div>
+            <div class="metric-value" id="readyCount">0</div>
+            <div class="metric-note">Awaiting processing</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Processing</div>
+            <div class="metric-value" id="processingCount">0</div>
+            <div class="metric-note">Currently locked</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Processed</div>
+            <div class="metric-value" id="processedCount">0</div>
+            <div class="metric-note">Completed today</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Errors</div>
+            <div class="metric-value" id="errorCount">0</div>
+            <div class="metric-note">Needs review</div>
+          </div>
+        </section>
 
-      <section class="workspace staging-workspace">
+        <section class="workspace header-workspace">
+          <div class="panel-head">
+            <h2>Documents</h2>
+            <div class="panel-actions">
+              <span class="status-pill" id="selectedCount">0 selected</span>
+              <span class="status-pill" id="headerCount">0 invoices</span>
+              <span class="status-pill" id="headerTotal">$0.00</span>
+              <button class="btn" id="processSelected" disabled>Process Selected</button>
+            </div>
+          </div>
+          <div class="grid-wrap">
+            <table aria-label="Invoice headers">
+              <thead>
+                <tr>
+                  <th class="select-col"><input type="checkbox" id="selectAllDocuments" aria-label="Select all visible documents"></th>
+                  <th>Source File</th>
+                  <th>Site</th>
+                  <th>Supplier</th>
+                  <th>Supplier Name</th>
+                  <th>Document</th>
+                  <th>Document Date</th>
+                  <th>Accounting Date</th>
+                  <th>PO Number</th>
+                  <th class="num">Subtotal</th>
+                  <th class="num">Tax</th>
+                  <th class="num">Total</th>
+                  <th>Current Status</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <div class="panel-head">
+            <h2>Document Lines</h2>
+            <div class="detail-meta">
+              <span class="status-pill" id="selectedDocument">No invoice selected</span>
+              <span class="status-pill" id="lineCount">0 lines</span>
+            </div>
+          </div>
+          <div class="grid-wrap">
+            <table class="line-table" aria-label="Invoice lines">
+              <thead>
+                <tr>
+                  <th>Account Code</th>
+                  <th class="num">Amount</th>
+                  <th>Line Description</th>
+                  <th>Line Status</th>
+                </tr>
+              </thead>
+              <tbody id="lineRows">
+                <tr>
+                  <td colspan="4">Select an invoice header.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="workspace log-workspace">
         <div class="panel-head">
-          <h2>Invoice Staging</h2>
-          <div class="tabs">
-            <button class="tab active">Headers</button>
-            <button class="tab">Lines</button>
-            <button class="tab">Messages</button>
-          </div>
+          <h2>Import Log</h2>
         </div>
-        <div class="grid-wrap">
-          <table>
-            <thead>
-              <tr data-doc="INV-84291" tabindex="0">
-                <th class="select-col"><input type="checkbox" id="selectAll" aria-label="Select all invoices"></th>
-                <th>Batch</th>
-                <th>Site</th>
-                <th>Supplier</th>
-                <th>Document</th>
-                <th>Document date</th>
-                <th class="num">Lines</th>
-                <th class="num">Value</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr data-doc="CN-20551" tabindex="0">
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-84291"></td>
-                <td>INV-GAP-20260505-A</td>
-                <td>NZ</td>
-                <td>SUP1003</td>
-                <td>INV-84291</td>
-                <td>2026-05-03</td>
-                <td class="num">8</td>
-                <td class="num">4,921.66</td>
-                <td><span class="badge good">Ready</span></td>
-              </tr>
-              <tr data-doc="INV-19374" tabindex="0">
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select CN-20551"></td>
-                <td>INV-GAP-20260505-A</td>
-                <td>NZ</td>
-                <td>SUP0881</td>
-                <td>CN-20551</td>
-                <td>2026-05-03</td>
-                <td class="num">2</td>
-                <td class="num">-184.00</td>
-                <td><span class="badge good">Ready</span></td>
-              </tr>
-              <tr data-doc="INV-55901" tabindex="0">
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-19374"></td>
-                <td>INV-GAP-20260505-B</td>
-                <td>AU</td>
-                <td>SUP1442</td>
-                <td>INV-19374</td>
-                <td>2026-05-04</td>
-                <td class="num">17</td>
-                <td class="num">21,880.10</td>
-                <td><span class="badge warn">Hold</span></td>
-              </tr>
-              <tr data-doc="INV-90402" tabindex="0">
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-55901"></td>
-                <td>INV-GAP-20260505-B</td>
-                <td>AU</td>
-                <td>SUP0729</td>
-                <td>INV-55901</td>
-                <td>2026-05-04</td>
-                <td class="num">4</td>
-                <td class="num">771.25</td>
-                <td><span class="badge bad">Error</span></td>
-              </tr>
-              <tr data-doc="INV-90416" tabindex="0">
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-90402"></td>
-                <td>INV-GAP-20260505-C</td>
-                <td>NZ</td>
-                <td>SUP1098</td>
-                <td>INV-90402</td>
-                <td>2026-05-05</td>
-                <td class="num">6</td>
-                <td class="num">3,307.44</td>
-                <td><span class="badge good">Ready</span></td>
-              </tr>
-              <tr>
-                <td class="select-col"><input type="checkbox" class="row-select" aria-label="Select INV-90416"></td>
-                <td>INV-GAP-20260505-C</td>
-                <td>NZ</td>
-                <td>SUP1227</td>
-                <td>INV-90416</td>
-                <td>2026-05-05</td>
-                <td class="num">3</td>
-                <td class="num">1,046.80</td>
-                <td><span class="badge warn">Hold</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="detail-head">
-          <div>
-            <div class="detail-title">Selected Invoice Lines</div>
-            <div class="detail-note" id="lineDetailNote">Click a header row to review its lines.</div>
-          </div>
-          <span class="status-pill" id="lineCount">0 lines</span>
-        </div>
-        <div class="grid-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Document</th>
-                <th class="num">Line</th>
-                <th>Ledger</th>
-                <th>PO</th>
-                <th>Description</th>
-                <th class="num">Qty</th>
-                <th class="num">Ex GST</th>
-                <th class="num">GST</th>
-              </tr>
-            </thead>
-            <tbody id="lineRows">
-              <tr>
-                <td colspan="8">No invoice selected.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <pre class="log" id="log"></pre>
       </section>
-
-      <aside class="side-stack">
-        <section class="workspace">
-          <div class="panel-head">
-            <h2>Runs</h2>
-            <button class="btn">Open log</button>
-          </div>
-          <div class="job-list">
-            <article class="job">
-              <div class="job-top">
-                <div>
-                  <div class="job-name">Download and import - NZ</div>
-                  <div class="job-meta">Started 13:42 by RHYNDMAN</div>
-                </div>
-                <span class="badge good">Running</span>
-              </div>
-              <div class="bar"><span></span></div>
-            </article>
-            <article class="job">
-              <div class="job-top">
-                <div>
-                  <div class="job-name">Extract - AU - GLM</div>
-                  <div class="job-meta">Completed 12:58</div>
-                </div>
-                <span class="badge good">Done</span>
-              </div>
-            </article>
-            <article class="job">
-              <div class="job-top">
-                <div>
-                  <div class="job-name">Upload - NZ</div>
-                  <div class="job-meta">Failed 12:44</div>
-                </div>
-                <span class="badge bad">Failed</span>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="workspace">
-          <div class="panel-head">
-            <h2>Live Log</h2>
-            <span class="status-pill">plusone.exe</span>
-          </div>
-          <pre class="log" id="log">[2026-05-05 13:42:01] [INFO] Loading PlusOneConfig.json
-[2026-05-05 13:42:01] [INFO] Site NZ selected
-[2026-05-05 13:42:02] [INFO] Connecting to SFTP
-[2026-05-05 13:42:04] [INFO] Downloaded INV-GAP-20260505-A.csv
-[2026-05-05 13:42:05] [INFO] Parsed 428 invoice rows
-[2026-05-05 13:42:07] [INFO] Staging import in progress...</pre>
-        </section>
-      </aside>
     </main>
   </div>
 
   <script>
-    const runButton = document.getElementById("runJob");
-    const log = document.getElementById("log");
-    const siteSelect = document.getElementById("site");
-    const selectAll = document.getElementById("selectAll");
-    const rowSelects = [...document.querySelectorAll(".row-select")];
-    const headerRows = [...document.querySelectorAll("tr[data-doc]")];
-    const lineRows = document.getElementById("lineRows");
-    const lineDetailNote = document.getElementById("lineDetailNote");
-    const lineCount = document.getElementById("lineCount");
+    let invoices = [
+      {
+        id: 101,
+        batch: "8F9C31E2",
+        site: "NZ",
+        supplier: "SUP1003",
+        supplierName: "Auckland Freight Services",
+        document: "INV-84291",
+        documentDate: "2026-05-03",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-44721",
+        subtotal: 4278.66,
+        tax: 642.99,
+        total: 4921.65,
+        status: "Ready"
+      },
+      {
+        id: 102,
+        batch: "8F9C31E2",
+        site: "NZ",
+        supplier: "SUP0881",
+        supplierName: "Tasman Packaging",
+        document: "CN-20551",
+        documentDate: "2026-05-03",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-44692",
+        subtotal: -160.00,
+        tax: -24.00,
+        total: -184.00,
+        status: "Ready"
+      },
+      {
+        id: 203,
+        batch: "A7B2100D",
+        site: "AU",
+        supplier: "SUP1442",
+        supplierName: "Melbourne Resin Supply",
+        document: "INV-19374",
+        documentDate: "2026-05-04",
+        accountingDate: "2026-05-05",
+        poNumber: "Multiple",
+        subtotal: 19891.00,
+        tax: 1989.10,
+        total: 21880.10,
+        status: "Processing"
+      },
+      {
+        id: 204,
+        batch: "A7B2100D",
+        site: "AU",
+        supplier: "SUP0729",
+        supplierName: "*** invalid vendor ***",
+        document: "INV-55901",
+        documentDate: "2026-05-04",
+        accountingDate: "2026-05-05",
+        poNumber: "",
+        subtotal: 670.65,
+        tax: 100.60,
+        total: 771.25,
+        status: "Error"
+      },
+      {
+        id: 305,
+        batch: "4D7721BF",
+        site: "NZ",
+        supplier: "SUP1098",
+        supplierName: "North Shore Engineering",
+        document: "INV-90402",
+        documentDate: "2026-05-05",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-45044",
+        subtotal: 2876.29,
+        tax: 431.15,
+        total: 3307.44,
+        status: "Processed"
+      }
+    ];
 
-    const linesByDocument = {
-      "INV-84291": [
-        ["INV-84291", 1, "6110", "PO-44721", "Freight services", 1, "820.00", "123.00"],
-        ["INV-84291", 2, "6225", "PO-44721", "Packing materials", 12, "1,440.00", "216.00"],
-        ["INV-84291", 3, "7110", "PO-44722", "Plant maintenance", 4, "2,018.66", "303.00"]
+    const demoLinesByInvoice = {
+      101: [
+        { accountCode: "6110", amount: 820.00, description: "Freight services", status: "Ready" },
+        { accountCode: "6225", amount: 1440.00, description: "Packing materials", status: "Ready" },
+        { accountCode: "7110", amount: 2018.66, description: "Plant maintenance", status: "Ready" }
       ],
-      "CN-20551": [
-        ["CN-20551", 1, "6110", "PO-44692", "Freight credit", 1, "-160.00", "-24.00"]
+      102: [
+        { accountCode: "6110", amount: -160.00, description: "Freight credit", status: "Ready" }
       ],
-      "INV-19374": [
-        ["INV-19374", 1, "7015", "PO-99201", "Resin delivery", 8, "9,840.00", "984.00"],
-        ["INV-19374", 2, "7015", "PO-99201", "Resin surcharge", 1, "1,120.00", "112.00"],
-        ["INV-19374", 3, "6340", "PO-99208", "Site consumables", 22, "3,214.10", "321.41"]
+      203: [
+        { accountCode: "7015", amount: 9840.00, description: "Resin delivery", status: "Processing" },
+        { accountCode: "7015", amount: 1120.00, description: "Resin surcharge", status: "Processing" },
+        { accountCode: "6340", amount: 8931.00, description: "Site consumables", status: "Processing" }
       ],
-      "INV-55901": [
-        ["INV-55901", 1, "6330", "", "Missing PO number", 2, "670.65", "100.60"]
+      204: [
+        { accountCode: "6330", amount: 670.65, description: "Missing PO number", status: "Error" }
       ],
-      "INV-90402": [
-        ["INV-90402", 1, "7205", "PO-45044", "Engineering labour", 6, "2,874.30", "431.15"],
-        ["INV-90402", 2, "6120", "PO-45044", "Courier charges", 1, "1.99", "0.00"]
-      ],
-      "INV-90416": [
-        ["INV-90416", 1, "7150", "PO-45062", "Calibration service", 1, "910.26", "136.54"]
+      305: [
+        { accountCode: "7205", amount: 2874.30, description: "Engineering labour", status: "Processed" },
+        { accountCode: "6120", amount: 1.99, description: "Courier charges", status: "Processed" }
       ]
     };
 
+    const linesByInvoice = new Map(
+      Object.entries(demoLinesByInvoice).map(([key, value]) => [Number(key), value])
+    );
+    invoices = [];
+    linesByInvoice.clear();
+
+    const invoiceRows = document.getElementById("invoiceRows");
+    const lineRows = document.getElementById("lineRows");
+    const selectedDocument = document.getElementById("selectedDocument");
+    const lineCount = document.getElementById("lineCount");
+    const selectedCount = document.getElementById("selectedCount");
+    const selectAllDocuments = document.getElementById("selectAllDocuments");
+    const processSelected = document.getElementById("processSelected");
+    const refreshButton = document.getElementById("refresh");
+    const downloadButton = document.getElementById("downloadImport");
+    const lockBanner = document.getElementById("lockBanner");
+    const siteSelect = document.getElementById("site");
+    const statusFilter = document.getElementById("statusFilter");
+    const statusTrigger = document.getElementById("statusTrigger");
+    const statusChecks = [...statusFilter.querySelectorAll('input[type="checkbox"]')];
+    const headerSearch = document.getElementById("headerSearch");
+    const log = document.getElementById("log");
+    const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8088" : "";
     const initialSite = new URLSearchParams(window.location.search).get("site");
     if (["NZ", "AU"].includes(initialSite)) {
       siteSelect.value = initialSite;
     }
 
-    selectAll.addEventListener("change", () => {
-      rowSelects.forEach((checkbox) => {
-        checkbox.checked = selectAll.checked;
-      });
+    const money = new Intl.NumberFormat("en-NZ", {
+      style: "currency",
+      currency: "NZD"
     });
 
-    rowSelects.forEach((checkbox) => {
-      checkbox.addEventListener("click", (event) => {
-        event.stopPropagation();
-      });
+    const statusClass = (status) => status.toLowerCase();
+    const selectedDocumentIds = new Set();
+    const isProcessable = (invoice) => invoice.status !== "Processed";
+    let appLock = null;
+    let heartbeatTimer = null;
 
-      checkbox.addEventListener("change", () => {
-        const checkedCount = rowSelects.filter((item) => item.checked).length;
-        selectAll.checked = checkedCount === rowSelects.length;
-        selectAll.indeterminate = checkedCount > 0 && checkedCount < rowSelects.length;
-      });
-    });
-
-    headerRows.forEach((row) => {
-      row.addEventListener("click", () => {
-        renderInvoiceLines(row.dataset.doc);
-      });
-
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          renderInvoiceLines(row.dataset.doc);
-        }
-      });
-    });
-
-    function renderInvoiceLines(document) {
-      headerRows.forEach((row) => {
-        row.classList.toggle("selected", row.dataset.doc === document);
-      });
-
-      const rows = linesByDocument[document] || [];
-      lineCount.textContent = `${rows.length} line${rows.length === 1 ? "" : "s"}`;
-      lineDetailNote.textContent = `Showing lines for ${document}.`;
-      lineRows.innerHTML = rows.map((line) => `
-        <tr>
-          <td>${line[0]}</td>
-          <td class="num">${line[1]}</td>
-          <td>${line[2]}</td>
-          <td>${line[3] || "-"}</td>
-          <td>${line[4]}</td>
-          <td class="num">${line[5]}</td>
-          <td class="num">${line[6]}</td>
-          <td class="num">${line[7]}</td>
-        </tr>
-      `).join("");
+    function formatMoney(value) {
+      return money.format(value).replace("NZ", "");
     }
 
-    runButton.addEventListener("click", () => {
-      const site = siteSelect.value;
-      const action = document.getElementById("action").value;
-      const selectedCount = rowSelects.filter((item) => item.checked).length;
-      const scope = selectedCount ? `${selectedCount} selected invoice(s)` : "all eligible invoices";
-      const line = `[2026-05-05 13:42:12] [INFO] Queued ${action} for ${site} - ${scope}`;
-      log.textContent = `${log.textContent}\n${line}`;
+    function formatDate(value) {
+      return value ? String(value).slice(0, 10) : "";
+    }
+
+    function currentTimestamp() {
+      return new Date().toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    function initializeLog() {
+      log.textContent = `[${currentTimestamp()}] [INFO] Connected to ${siteSelect.value}`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function appendLog(message) {
+      log.textContent = log.textContent ? `${log.textContent}\n${message}` : message;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function setUrlSite(site) {
+      if (window.location.protocol === "file:") {
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("site", site);
+      window.history.replaceState({}, "", url);
+    }
+
+    function clearDocumentLines(message = "Select a document header.") {
+      selectedDocument.textContent = "No document selected";
+      lineCount.textContent = "0 lines";
+      lineRows.innerHTML = `<tr><td colspan="4">${message}</td></tr>`;
+    }
+
+    function mapDocument(row) {
+      return {
+        id: Number(row.InvoiceHeaderID),
+        batch: row.Batch || row.ImportBatchID || "",
+        sourceFile: row.FileName || "",
+        site: siteSelect.value,
+        supplier: row.SupplierID || "",
+        supplierName: row.VendorName || "",
+        document: row.DocumentNo || "",
+        documentDate: formatDate(row.DocumentDate),
+        accountingDate: formatDate(row.AccountingValueDate),
+        poNumber: row.PurchaseOrderNo || "",
+        subtotal: Number(row.SubtotalExclGST || 0),
+        tax: Number(row.TotalGST || 0),
+        total: Number(row.DocumentTotal || 0),
+        status: row.HeaderStatusDesc || "Status " + row.HeaderStatus
+      };
+    }
+
+    function mapLine(row) {
+      return {
+        accountCode: row.LedgerCode || "",
+        amount: Number(row.LineValueExclGST || 0),
+        description: row.LineDescription || "",
+        status: row.LineStatusDesc || "Status " + row.LineStatus
+      };
+    }
+
+    function apiUrl(path) {
+      return `${API_BASE}${path}`;
+    }
+
+    function friendlyFetchError(error) {
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        return "Cannot reach the PlusOne web service. Open http://127.0.0.1:8088/ or start plusone_web.py.";
+      }
+      return error.message;
+    }
+
+    function setLockedState(isLocked, message = "") {
+      lockBanner.textContent = message;
+      lockBanner.classList.toggle("show", isLocked);
+      refreshButton.disabled = isLocked;
+      downloadButton.disabled = isLocked;
+      processSelected.disabled = isLocked || selectedDocumentIds.size === 0;
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(apiUrl(url), options);
+      const payload = await response.json();
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || `Request failed with status ${response.status}`);
+      }
+      return payload;
+    }
+
+    async function acquireLock() {
+      stopHeartbeat();
+      appLock = null;
+      setLockedState(false);
+
+      const payload = await fetchJson("/api/lock/acquire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: siteSelect.value })
+      });
+
+      if (payload.locked) {
+        const lock = payload.lock || {};
+        const message = `PlusOne is locked by ${lock.userName || "another user"} on ${lock.machineName || "another machine"} since ${formatDate(lock.acquiredDateTime)}.`;
+        setLockedState(true, message);
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [WARN] ${message}`);
+        return false;
+      }
+
+      appLock = payload.lock;
+      startHeartbeat();
+      return true;
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      heartbeatTimer = window.setInterval(async () => {
+        if (!appLock) {
+          return;
+        }
+        try {
+          const payload = await fetchJson("/api/lock/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ site: appLock.site, lockId: appLock.lockId })
+          });
+          if (!payload.ok) {
+            throw new Error("Application lock was lost.");
+          }
+        } catch (error) {
+          appLock = null;
+          stopHeartbeat();
+          setLockedState(true, friendlyFetchError(error));
+        }
+      }, 30000);
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatTimer) {
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+    }
+
+    function releaseLock() {
+      if (!appLock) {
+        return;
+      }
+      const payload = JSON.stringify({ site: appLock.site, lockId: appLock.lockId });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(apiUrl("/api/lock/release"), payload);
+      } else {
+        fetch(apiUrl("/api/lock/release"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true
+        });
+      }
+      appLock = null;
+      stopHeartbeat();
+    }
+
+    async function loadDocuments() {
+      try {
+        if (!appLock) {
+          const acquired = await acquireLock();
+          if (!acquired) {
+            invoices = [];
+            selectedDocumentIds.clear();
+            renderSummary([]);
+            invoiceRows.innerHTML = '<tr><td colspan="13">Application is locked by another user.</td></tr>';
+            clearDocumentLines("Application is locked by another user.");
+            return;
+          }
+        }
+        clearDocumentLines("Loading documents.");
+        invoices = [];
+        selectedDocumentIds.clear();
+        renderSummary([]);
+        invoiceRows.innerHTML = '<tr><td colspan="13">Loading documents.</td></tr>';
+        const payload = await fetchJson(`/api/documents?site=${encodeURIComponent(siteSelect.value)}`);
+        invoices = payload.documents.map(mapDocument);
+        linesByInvoice.clear();
+        selectedDocumentIds.clear();
+        renderInvoices();
+      } catch (error) {
+        invoices = [];
+        selectedDocumentIds.clear();
+        clearDocumentLines("Documents could not be loaded.");
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+        renderInvoices();
+      }
+    }
+
+    function changeSite() {
+      releaseLock();
+      setUrlSite(siteSelect.value);
+      selectedDocumentIds.clear();
+      linesByInvoice.clear();
+      headerSearch.value = "";
+      initializeLog();
+      loadDocuments();
+    }
+
+    async function loadLines(invoiceId) {
+      if (linesByInvoice.has(invoiceId)) {
+        return linesByInvoice.get(invoiceId);
+      }
+      const payload = await fetchJson(`/api/documents/${invoiceId}/lines?site=${encodeURIComponent(siteSelect.value)}`);
+      const lines = payload.lines.map(mapLine);
+      linesByInvoice.set(invoiceId, lines);
+      return lines;
+    }
+
+    function selectedStatuses() {
+      return statusChecks.filter((check) => check.checked).map((check) => check.value);
+    }
+
+    function updateStatusTrigger() {
+      const statuses = selectedStatuses();
+      if (statuses.length === statusChecks.length) {
+        statusTrigger.textContent = "All statuses";
+      } else if (statuses.length === 0) {
+        statusTrigger.textContent = "No statuses";
+      } else if (statuses.length === 1) {
+        statusTrigger.textContent = statuses[0];
+      } else {
+        statusTrigger.textContent = `${statuses.length} statuses`;
+      }
+    }
+
+    function invoiceSearchText(invoice) {
+      return [
+        invoice.batch,
+        invoice.sourceFile,
+        invoice.site,
+        invoice.supplier,
+        invoice.supplierName,
+        invoice.document,
+        invoice.documentDate,
+        invoice.accountingDate,
+        invoice.poNumber,
+        formatMoney(invoice.subtotal),
+        formatMoney(invoice.tax),
+        formatMoney(invoice.total),
+        invoice.status
+      ].join(" ").toLowerCase();
+    }
+
+    function visibleInvoices() {
+      const statuses = selectedStatuses();
+      const searchText = headerSearch.value.trim().toLowerCase();
+      return invoices.filter((invoice) => {
+        const siteMatches = invoice.site === siteSelect.value;
+        const statusMatches = statuses.includes(invoice.status);
+        const searchMatches = !searchText || invoiceSearchText(invoice).includes(searchText);
+        return siteMatches && statusMatches && searchMatches;
+      });
+    }
+
+    function renderSummary(rows) {
+      const siteRows = invoices;
+      document.getElementById("readyCount").textContent = siteRows.filter((row) => row.status === "Ready").length;
+      document.getElementById("processingCount").textContent = siteRows.filter((row) => row.status === "Processing").length;
+      document.getElementById("processedCount").textContent = siteRows.filter((row) => row.status === "Processed").length;
+      document.getElementById("errorCount").textContent = siteRows.filter((row) => row.status === "Error").length;
+      document.getElementById("headerCount").textContent = `${rows.length} invoice${rows.length === 1 ? "" : "s"}`;
+      document.getElementById("headerTotal").textContent = formatMoney(rows.reduce((total, row) => total + row.total, 0));
+      updateDocumentSelectionState(rows);
+    }
+
+    function updateDocumentSelectionState(visibleRows = visibleInvoices()) {
+      const processableRows = visibleRows.filter(isProcessable);
+      const processableIds = processableRows.map((invoice) => invoice.id);
+      const selectedVisibleCount = processableIds.filter((id) => selectedDocumentIds.has(id)).length;
+      selectedCount.textContent = `${selectedVisibleCount} selected`;
+      processSelected.disabled = selectedVisibleCount === 0;
+      selectAllDocuments.disabled = processableIds.length === 0;
+      selectAllDocuments.checked = processableIds.length > 0 && selectedVisibleCount === processableIds.length;
+      selectAllDocuments.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < processableIds.length;
+    }
+
+    function renderInvoices() {
+      const rows = visibleInvoices();
+      selectedDocumentIds.forEach((id) => {
+        const invoice = invoices.find((item) => item.id === id);
+        if (invoice && !isProcessable(invoice)) {
+          selectedDocumentIds.delete(id);
+        }
+      });
+      renderSummary(rows);
+      invoiceRows.innerHTML = rows.map((invoice) => `
+        <tr data-id="${invoice.id}" class="${isProcessable(invoice) ? "" : "disabled"}" tabindex="0">
+          <td class="select-col"><input type="checkbox" class="document-select" value="${invoice.id}" aria-label="Select ${invoice.document}" ${selectedDocumentIds.has(invoice.id) ? "checked" : ""} ${isProcessable(invoice) ? "" : "disabled"}></td>
+          <td class="text-clip" title="${invoice.sourceFile || invoice.batch}">${invoice.sourceFile || invoice.batch}</td>
+          <td>${invoice.site}</td>
+          <td>${invoice.supplier}</td>
+          <td class="text-clip" title="${invoice.supplierName}">${invoice.supplierName}</td>
+          <td>${invoice.document}</td>
+          <td>${invoice.documentDate}</td>
+          <td>${invoice.accountingDate}</td>
+          <td>${invoice.poNumber || "-"}</td>
+          <td class="num">${formatMoney(invoice.subtotal)}</td>
+          <td class="num">${formatMoney(invoice.tax)}</td>
+          <td class="num">${formatMoney(invoice.total)}</td>
+          <td><span class="badge ${statusClass(invoice.status)}">${invoice.status}</span></td>
+        </tr>
+      `).join("");
+
+      [...invoiceRows.querySelectorAll("tr")].forEach((row) => {
+        row.addEventListener("click", () => {
+          selectInvoice(Number(row.dataset.id));
+        });
+        row.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectInvoice(Number(row.dataset.id));
+          }
+        });
+      });
+
+      [...invoiceRows.querySelectorAll(".document-select")].forEach((checkbox) => {
+        checkbox.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+
+        checkbox.addEventListener("change", () => {
+          const id = Number(checkbox.value);
+          const invoice = invoices.find((item) => item.id === id);
+          if (checkbox.checked && invoice && isProcessable(invoice)) {
+            selectedDocumentIds.add(id);
+          } else {
+            selectedDocumentIds.delete(id);
+          }
+          updateDocumentSelectionState(rows);
+        });
+      });
+
+      if (rows.length) {
+        selectInvoice(rows[0].id);
+      } else {
+        selectedDocument.textContent = "No invoice selected";
+        lineCount.textContent = "0 lines";
+        lineRows.innerHTML = '<tr><td colspan="4">No invoices match the current filters.</td></tr>';
+      }
+    }
+
+    async function selectInvoice(id) {
+      const invoice = invoices.find((item) => item.id === id);
+      if (!invoice) {
+        return;
+      }
+
+      [...invoiceRows.querySelectorAll("tr")].forEach((row) => {
+        row.classList.toggle("selected", Number(row.dataset.id) === id);
+      });
+
+      selectedDocument.textContent = invoice.document;
+      lineCount.textContent = "Loading";
+      lineRows.innerHTML = '<tr><td colspan="4">Loading document lines.</td></tr>';
+
+      try {
+        const rows = await loadLines(id);
+        lineCount.textContent = `${rows.length} line${rows.length === 1 ? "" : "s"}`;
+        lineRows.innerHTML = rows.map((line) => `
+          <tr>
+            <td>${line.accountCode}</td>
+            <td class="num">${formatMoney(line.amount)}</td>
+            <td class="text-clip" title="${line.description}">${line.description}</td>
+            <td><span class="badge ${statusClass(line.status)}">${line.status}</span></td>
+          </tr>
+        `).join("");
+      } catch (error) {
+        lineCount.textContent = "0 lines";
+        lineRows.innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`;
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      }
+    }
+
+    downloadButton.addEventListener("click", async () => {
+      if (!appLock) {
+        return;
+      }
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      appendLog(`[${now}] [INFO] Queued download for ${siteSelect.value}`);
+      try {
+        const payload = await fetchJson("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ site: siteSelect.value, lockId: appLock.lockId })
+        });
+        (payload.log || []).forEach(appendLog);
+        await loadDocuments();
+      } catch (error) {
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      }
+    });
+
+    processSelected.addEventListener("click", () => {
+      if (!appLock) {
+        return;
+      }
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      const selectedVisible = visibleInvoices().filter((invoice) => selectedDocumentIds.has(invoice.id) && isProcessable(invoice));
+      const documents = selectedVisible.map((invoice) => invoice.document).join(", ");
+      log.textContent = `${log.textContent}\n[${now}] [INFO] Queued processing for ${documents}`;
       log.scrollTop = log.scrollHeight;
     });
+
+    selectAllDocuments.addEventListener("change", () => {
+      const rows = visibleInvoices().filter(isProcessable);
+      rows.forEach((invoice) => {
+        if (selectAllDocuments.checked) {
+          selectedDocumentIds.add(invoice.id);
+        } else {
+          selectedDocumentIds.delete(invoice.id);
+        }
+      });
+      renderInvoices();
+    });
+
+    statusTrigger.addEventListener("click", () => {
+      const isOpen = statusFilter.classList.toggle("open");
+      statusTrigger.setAttribute("aria-expanded", String(isOpen));
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!statusFilter.contains(event.target)) {
+        statusFilter.classList.remove("open");
+        statusTrigger.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    statusChecks.forEach((check) => {
+      check.addEventListener("change", () => {
+        updateStatusTrigger();
+        renderInvoices();
+      });
+    });
+
+    refreshButton.addEventListener("click", loadDocuments);
+    siteSelect.addEventListener("change", changeSite);
+    headerSearch.addEventListener("input", renderInvoices);
+    window.addEventListener("pagehide", releaseLock);
+    window.addEventListener("beforeunload", releaseLock);
+
+    updateStatusTrigger();
+    initializeLog();
+    loadDocuments();
   </script>
 </body>
 </html>

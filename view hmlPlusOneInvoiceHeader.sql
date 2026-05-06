@@ -12,6 +12,12 @@ AS
 SELECT
     h.[InvoiceHeaderID],
     h.[ImportBatchID],
+    CONVERT(varchar(36), h.[ImportBatchID]) AS [Batch],
+    CASE
+        WHEN DB_NAME() = 'HMNZL' THEN 'NZ'
+        WHEN DB_NAME() = 'HMAUD' THEN 'AU'
+        ELSE DB_NAME()
+    END AS [Site],
     RTRIM(h.[DocumentNo]) AS [DocumentNo],
     UPPER(RTRIM(h.[SupplierID])) AS [SupplierID],
     ISNULL(NULLIF(RTRIM(v.[VENDNAME]), ''), '*** invalid vendor ***') AS [VendorName],
@@ -20,6 +26,11 @@ SELECT
     RTRIM(h.[FileName]) AS [FileName],
     RTRIM(h.[ImageURL]) AS [ImageURL],
     COUNT(l.[InvoiceLineID]) AS [LineCount],
+    CASE
+        WHEN COUNT(DISTINCT NULLIF(RTRIM(l.[PurchaseOrderNo]), '')) = 0 THEN ''
+        WHEN COUNT(DISTINCT NULLIF(RTRIM(l.[PurchaseOrderNo]), '')) = 1 THEN MAX(NULLIF(RTRIM(l.[PurchaseOrderNo]), ''))
+        ELSE 'Multiple'
+    END AS [PurchaseOrderNo],
     ISNULL(SUM(ISNULL(l.[LineValueExclGST], 0)), 0) AS [SubtotalExclGST],
     ISNULL(SUM(ISNULL(l.[LineValueGST], 0)), 0) AS [TotalGST],
     ISNULL(SUM(ISNULL(l.[LineValueExclGST], 0) + ISNULL(l.[LineValueGST], 0)), 0) AS [DocumentTotal],

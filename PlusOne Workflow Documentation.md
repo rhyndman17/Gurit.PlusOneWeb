@@ -519,9 +519,14 @@ The current pattern is:
 
 This keeps the original files available for operational review and support investigations.
 
-## Assumed GP UI Design
+## Production UI Design
 
-Although the GP UI is not yet complete, the intended design is:
+The production UI is focused on inbound invoice download, staging review, and processing status.
+It is not intended to run outbound extract or upload jobs.
+
+Primary action:
+
+- download and import invoices for the selected site
 
 ### Header Window
 
@@ -529,27 +534,25 @@ Primary data source:
 
 - `dbo.vw_hmlPlusOneInvoiceHeader`
 
-Suggested fields:
+Required fields:
 
-- document number
+- batch
+- site
 - supplier ID
+- supplier name
+- document number
 - document date
 - accounting date
-- file name
-- document total
-- line count
-- status
-- error line count
-- header message
-- GP voucher number
+- PO number
+- subtotal
+- tax
+- total
+- current status
 
-Suggested actions:
+Suggested supporting actions:
 
 - refresh
 - view lines
-- view errors
-- process selected invoice
-- optionally process all ready invoices
 
 ### Line Detail Window
 
@@ -557,15 +560,12 @@ Primary data source:
 
 - `dbo.vw_hmlPlusOneInvoiceLineDetail`
 
-Suggested fields:
+Required fields:
 
-- source line number
-- ledger code
+- ledger code shown as account code
+- line value excluding GST shown as amount
 - line description
-- line amounts
-- PO reference
 - line status
-- line message
 
 ### Message Window
 
@@ -606,13 +606,14 @@ Suggested purpose:
 Recommended SQL deployment order:
 
 1. `table hmlPlusOneMessages.sql`
-2. `table hmlPlusOneInvoiceHeader.sql`
-3. `table hmlPlusOneInvoiceLine.sql`
-4. `proc hmlPlusOneStageImportedBatch.txt`
-5. `proc hmlPlusOneProcessInvoiceHeader.txt`
-6. `proc hmlPlusOneCreateNonPOInvoice.txt`
-7. `view hmlPlusOneInvoiceHeader.sql`
-8. `view hmlPlusOneInvoiceLineDetail.sql`
+2. `table hmlPlusOneAppLock.sql`
+3. `table hmlPlusOneInvoiceHeader.sql`
+4. `table hmlPlusOneInvoiceLine.sql`
+5. `proc hmlPlusOneStageImportedBatch.txt`
+6. `proc hmlPlusOneProcessInvoiceHeader.txt`
+7. `proc hmlPlusOneCreateNonPOInvoice.txt`
+8. `view hmlPlusOneInvoiceHeader.sql`
+9. `view hmlPlusOneInvoiceLineDetail.sql`
 
 Recommended script deployment:
 
@@ -636,7 +637,7 @@ Recommended script deployment:
 When the GP UI is finished, it should align to this document by:
 
 - using the new header and line views instead of the legacy single table
-- exposing header status and error counts clearly
-- providing a direct line drilldown for error review
-- calling the single-header process proc for controlled posting
-- optionally exposing `hmlPlusOneMessages` as an operator support inquiry window
+- exposing the production header columns listed above
+- showing the matching line rows when a user selects an invoice header
+- using download/import as the only executable integration action in this screen
+- optionally exposing `hmlPlusOneMessages` as a support inquiry area
