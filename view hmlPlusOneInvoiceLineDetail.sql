@@ -34,6 +34,7 @@ SELECT
         WHEN l.[Status] = 0 THEN 'Ready'
         WHEN l.[Status] = 1 THEN 'Processing'
         WHEN l.[Status] = 2 THEN 'Processed'
+        WHEN l.[Status] = 8 THEN 'Cancelled'
         WHEN l.[Status] = 9 THEN 'Error'
         ELSE 'Status ' + CONVERT(varchar(10), l.[Status])
     END AS [LineStatusDesc],
@@ -50,6 +51,7 @@ SELECT
         WHEN h.[Status] = 0 THEN 'Ready'
         WHEN h.[Status] = 1 THEN 'Processing'
         WHEN h.[Status] = 2 THEN 'Processed'
+        WHEN h.[Status] = 8 THEN 'Cancelled'
         WHEN h.[Status] = 9 THEN 'Error'
         ELSE 'Status ' + CONVERT(varchar(10), h.[Status])
     END AS [HeaderStatusDesc],

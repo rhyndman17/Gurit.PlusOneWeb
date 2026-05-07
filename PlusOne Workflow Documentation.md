@@ -136,6 +136,8 @@ The PlusOne web application exposes the staging data like this:
 - a line drilldown bound to `dbo.vw_hmlPlusOneInvoiceLineDetail`
 - a Process Selected action that calls the web API endpoint `/api/process`
 - `/api/process` calls `dbo.hmlPlusOneProcessInvoice` once for each selected `InvoiceHeaderID`
+- a Cancel Selected action that calls the web API endpoint `/api/cancel`
+- `/api/cancel` calls `dbo.hmlPlusOneCancelInvoice` once for each selected cancellable `InvoiceHeaderID`
 - an optional process-all action that calls `dbo.hmlPlusOneCreateNonPOInvoice`
 - an application lock backed by `dbo.hmlPlusOneAppLock`
 
@@ -148,6 +150,8 @@ The intended user workflow is:
 5. Process selected documents.
 6. The web app submits selected headers one at a time for best error isolation.
 7. Review success or error feedback directly in the same screen.
+
+Users can also cancel selected `Ready` or `Error` invoices. Cancelled records are retained in staging with `Status = 8`, but the `Cancelled` status filter is not selected by default. The UI prompts for confirmation before cancellation.
 
 Error feedback is surfaced through status badges:
 
@@ -193,6 +197,29 @@ The process-all wrapper is:
 This wrapper finds all header rows in `Status = 0` and processes them one by one using the single-header procedure.
 
 The web application does not use this wrapper for selected processing. It calls `dbo.hmlPlusOneProcessInvoice` once per selected header so each document can succeed or fail independently.
+
+### 6. SQL Cancellation
+
+Cancellation is centered around:
+
+- `dbo.hmlPlusOneCancelInvoice`
+
+This procedure:
+
+1. Locks the selected header.
+2. Allows cancellation only when the header is `Ready` or `Error`.
+3. Blocks cancellation for `Processing`, `Processed`, and already `Cancelled` headers.
+4. Sets the header status to `8`.
+5. Sets all matching line statuses to `8`.
+6. Writes the cancelling user, date/time, and previous status into `HeaderMessage`.
+7. Writes an audit message to `dbo.hmlPlusOneMessages`.
+
+The web UI presents cancellation as a separate action from processing:
+
+- `Process Selected` appears before `Cancel Selected`
+- `Cancel Selected` uses a red danger-style button
+- the user must confirm before `/api/cancel` is called
+- cancelled records remain available through the `Cancelled` status filter
 
 ## Outbound Extract And Upload Workflow
 
@@ -379,6 +406,19 @@ Recommended use:
 - optional unattended or bulk process option
 - backward compatibility where older automation expects this procedure name
 
+### `dbo.hmlPlusOneCancelInvoice`
+
+Purpose:
+Cancel one selected staged invoice while retaining the imported header and line records for audit.
+
+Responsibilities:
+
+- allow cancellation of `Ready` and `Error` headers
+- prevent cancellation of `Processing`, `Processed`, and already `Cancelled` headers
+- set the header and all lines to `Status = 8`
+- record the cancelling user, date/time, and previous status in `HeaderMessage`
+- write an audit entry to `dbo.hmlPlusOneMessages`
+
 ### `dbo.hmlPlusOneMessages`
 
 Purpose:
@@ -444,6 +484,9 @@ The web application exposes these main endpoints:
 
 - `POST /api/process`
   Accepts selected `InvoiceHeaderID` values and calls `dbo.hmlPlusOneProcessInvoice` once per selected document.
+
+- `POST /api/cancel`
+  Accepts selected cancellable `InvoiceHeaderID` values and calls `dbo.hmlPlusOneCancelInvoice` once per selected document.
 
 - `POST /api/lock/acquire`, `POST /api/lock/heartbeat`, and `POST /api/lock/release`
   Manage the application lock in `dbo.hmlPlusOneAppLock`.
@@ -517,6 +560,7 @@ The staging tables currently use these status meanings:
 - `0`: Ready
 - `1`: Processing
 - `2`: Processed
+- `8`: Cancelled
 - `9`: Error
 
 These values are surfaced in both views with human-readable descriptions.
@@ -525,6 +569,8 @@ The UI displays the status description as a badge. If the row has an error messa
 
 - header badge tooltip: `HeaderMessage`
 - line badge tooltip: `LineMessage`, falling back to `HeaderMessage`
+
+The `Cancelled` filter option is available but not selected by default. Cancelled badges use a neutral grey style so they are visually distinct from actionable error rows.
 
 ## Error Handling Model
 
@@ -628,6 +674,7 @@ Primary action:
 
 - download and import invoices for the selected site
 - process selected ready/error invoice headers into Dynamics GP
+- cancel selected ready/error invoice headers while retaining audit history
 
 ### Header Window
 
@@ -655,6 +702,13 @@ Suggested supporting actions:
 - refresh
 - view lines
 - process selected
+- cancel selected
+
+Action layout:
+
+- `Process Selected` is placed before `Cancel Selected`
+- `Cancel Selected` uses a red danger-style button to distinguish it from normal processing
+- cancellation requires a confirmation prompt before any selected records are updated
 
 Error behavior:
 
@@ -708,6 +762,7 @@ Suggested purpose:
 11. SQL pre-validates the invoice and, if valid, creates the GP PM transaction.
 12. SQL updates staging status, voucher references, and error messages.
 13. Errors are shown back through header and line status tooltips.
+14. If a user cancels a `Ready` or `Error` invoice, `/api/cancel` marks the header and lines as `Cancelled` and records who cancelled it in `HeaderMessage`.
 
 ### Outbound
 
@@ -727,9 +782,10 @@ Recommended SQL deployment order:
 4. `table hmlPlusOneInvoiceLine.sql`
 5. `proc hmlPlusOneStageImportedBatch.txt`
 6. `proc hmlPlusOneProcessInvoice.txt`
-7. `proc hmlPlusOneCreateNonPOInvoice.txt`
-8. `view hmlPlusOneInvoiceHeader.sql`
-9. `view hmlPlusOneInvoiceLineDetail.sql`
+7. `proc hmlPlusOneCancelInvoice.txt`
+8. `proc hmlPlusOneCreateNonPOInvoice.txt`
+9. `view hmlPlusOneInvoiceHeader.sql`
+10. `view hmlPlusOneInvoiceLineDetail.sql`
 
 Recommended script deployment:
 
@@ -771,6 +827,7 @@ Future UI changes should preserve these patterns:
 - exposing the production header columns listed above
 - showing the matching line rows when a user selects an invoice header
 - using download/import and selected-document processing as the executable integration actions in this screen
+- preserving selected-document cancellation for `Ready` and `Error` invoices
 - preserving one-header-at-a-time backend processing even when multiple headers are selected
 - showing header and line processing messages close to the status fields
 - optionally exposing `hmlPlusOneMessages` as a support inquiry area

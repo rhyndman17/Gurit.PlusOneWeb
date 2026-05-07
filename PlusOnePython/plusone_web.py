@@ -350,6 +350,37 @@ def process_selected_documents(config_path: Path, site: str, invoice_header_ids:
     }
 
 
+def cancel_selected_documents(config_path: Path, site: str, invoice_header_ids: list[int], cancelled_by: str) -> dict[str, Any]:
+    if not invoice_header_ids:
+        raise ValueError("At least one document must be selected.")
+
+    site_config = plusone.load_site_config(config_path, site)
+    results: list[dict[str, Any]] = []
+
+    with plusone.sql_connection(site_config) as connection:
+        cursor = connection.cursor()
+        for invoice_header_id in invoice_header_ids:
+            try:
+                cursor.execute(
+                    "EXEC dbo.hmlPlusOneCancelInvoice @InvoiceHeaderID = ?, @CancelledBy = ?",
+                    invoice_header_id,
+                    cancelled_by,
+                )
+                connection.commit()
+                results.append({"invoiceHeaderId": invoice_header_id, "ok": True})
+            except Exception as exc:
+                connection.rollback()
+                results.append({"invoiceHeaderId": invoice_header_id, "ok": False, "error": str(exc)})
+
+    failed = [result for result in results if not result["ok"]]
+    return {
+        "ok": len(failed) == 0,
+        "cancelled": len(results) - len(failed),
+        "failed": len(failed),
+        "results": results,
+    }
+
+
 class PlusOneWebHandler(SimpleHTTPRequestHandler):
     config_path: Path
     launch_user: str
@@ -416,7 +447,7 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path not in {"/api/download", "/api/process", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"}:
+        if parsed.path not in {"/api/download", "/api/process", "/api/cancel", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"}:
             self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint.")
             return
 
@@ -458,6 +489,16 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
                     raise ValueError("invoiceHeaderIds must be a list.")
                 invoice_header_ids = [int(value) for value in raw_ids]
                 result = process_selected_documents(self.config_path, site, invoice_header_ids)
+                self.send_json(result, HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT)
+                return
+
+            if parsed.path == "/api/cancel":
+                raw_ids = payload.get("invoiceHeaderIds", [])
+                if not isinstance(raw_ids, list):
+                    raise ValueError("invoiceHeaderIds must be a list.")
+                invoice_header_ids = [int(value) for value in raw_ids]
+                cancelled_by = str(payload.get("userName") or self.launch_user)
+                result = cancel_selected_documents(self.config_path, site, invoice_header_ids, cancelled_by)
                 self.send_json(result, HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT)
                 return
 

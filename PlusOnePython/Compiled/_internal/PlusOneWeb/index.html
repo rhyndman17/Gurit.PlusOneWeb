@@ -306,6 +306,17 @@
       background: var(--brand-dark);
     }
 
+    .btn.danger {
+      border-color: #aa2e25;
+      background: #aa2e25;
+      color: #fff;
+    }
+
+    .btn.danger:hover:not(:disabled) {
+      border-color: #8f241d;
+      background: #8f241d;
+    }
+
     .btn:disabled {
       border-color: var(--border);
       background: #eef2f5;
@@ -513,6 +524,11 @@
       background: var(--busy-bg);
     }
 
+    .badge.cancelled {
+      color: #5f6a72;
+      background: #eef1f3;
+    }
+
     .badge.error {
       color: var(--error);
       background: var(--error-bg);
@@ -626,6 +642,7 @@
               <label class="check-option"><input type="checkbox" value="Ready" checked> Ready</label>
               <label class="check-option"><input type="checkbox" value="Processing" checked> Processing</label>
               <label class="check-option"><input type="checkbox" value="Processed"> Processed</label>
+              <label class="check-option"><input type="checkbox" value="Cancelled"> Cancelled</label>
               <label class="check-option"><input type="checkbox" value="Error" checked> Error</label>
             </div>
           </div>
@@ -679,6 +696,7 @@
               <span class="status-pill" id="headerCount">0 invoices</span>
               <span class="status-pill" id="headerTotal">$0.00</span>
               <button class="btn" id="processSelected" disabled>Process Selected</button>
+              <button class="btn danger" id="cancelSelected" disabled>Cancel Selected</button>
             </div>
           </div>
           <div class="grid-wrap">
@@ -857,6 +875,7 @@
     const selectedCount = document.getElementById("selectedCount");
     const selectAllDocuments = document.getElementById("selectAllDocuments");
     const processSelected = document.getElementById("processSelected");
+    const cancelSelected = document.getElementById("cancelSelected");
     const refreshButton = document.getElementById("refresh");
     const downloadButton = document.getElementById("downloadImport");
     const lockBanner = document.getElementById("lockBanner");
@@ -883,7 +902,8 @@
 
     const statusClass = (status) => status.toLowerCase();
     const selectedDocumentIds = new Set();
-    const isProcessable = (invoice) => invoice.status !== "Processed";
+    const isProcessable = (invoice) => !["Processing", "Processed", "Cancelled"].includes(invoice.status);
+    const isCancellable = (invoice) => ["Ready", "Error"].includes(invoice.status);
     let appLock = null;
     let heartbeatTimer = null;
 
@@ -1020,6 +1040,7 @@
       refreshButton.disabled = isLocked;
       downloadButton.disabled = isLocked;
       processSelected.disabled = isLocked || selectedDocumentIds.size === 0;
+      cancelSelected.disabled = isLocked || selectedDocumentIds.size === 0;
     }
 
     async function fetchJson(url, options) {
@@ -1217,8 +1238,11 @@
       const processableRows = visibleRows.filter(isProcessable);
       const processableIds = processableRows.map((invoice) => invoice.id);
       const selectedVisibleCount = processableIds.filter((id) => selectedDocumentIds.has(id)).length;
+      const selectedVisibleRows = visibleRows.filter((invoice) => selectedDocumentIds.has(invoice.id));
+      const cancellableSelectedCount = selectedVisibleRows.filter(isCancellable).length;
       selectedCount.textContent = `${selectedVisibleCount} selected`;
       processSelected.disabled = selectedVisibleCount === 0;
+      cancelSelected.disabled = cancellableSelectedCount === 0;
       selectAllDocuments.disabled = processableIds.length === 0;
       selectAllDocuments.checked = processableIds.length > 0 && selectedVisibleCount === processableIds.length;
       selectAllDocuments.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < processableIds.length;
@@ -1371,6 +1395,57 @@
             appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [INFO] Processed ${label}`);
           } else {
             appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${label}: ${result.error || "Processing failed"}`);
+          }
+        });
+        if (!response.ok && !payload.results) {
+          throw new Error(payload.error || `Request failed with status ${response.status}`);
+        }
+        await loadDocuments();
+      } catch (error) {
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      } finally {
+        renderInvoices();
+      }
+    });
+
+    cancelSelected.addEventListener("click", async () => {
+      if (!appLock) {
+        return;
+      }
+      const selectedVisible = visibleInvoices().filter((invoice) => selectedDocumentIds.has(invoice.id) && isCancellable(invoice));
+      if (selectedVisible.length === 0) {
+        return;
+      }
+      const documents = selectedVisible.map((invoice) => invoice.document).join(", ");
+      const confirmed = window.confirm(
+        `Cancel ${selectedVisible.length} selected invoice${selectedVisible.length === 1 ? "" : "s"}?\n\nThese records will be hidden from the default processing list but retained for audit.`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [INFO] Cancelling ${documents}`);
+      cancelSelected.disabled = true;
+      processSelected.disabled = true;
+
+      try {
+        const response = await fetch(apiUrl("/api/cancel"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            site: siteSelect.value,
+            lockId: appLock.lockId,
+            invoiceHeaderIds: selectedVisible.map((invoice) => invoice.id)
+          })
+        });
+        const payload = await response.json();
+        (payload.results || []).forEach((result) => {
+          const invoice = selectedVisible.find((row) => row.id === result.invoiceHeaderId);
+          const label = invoice ? invoice.document : `Header ${result.invoiceHeaderId}`;
+          if (result.ok) {
+            appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [INFO] Cancelled ${label}`);
+          } else {
+            appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${label}: ${result.error || "Cancellation failed"}`);
           }
         });
         if (!response.ok && !payload.results) {

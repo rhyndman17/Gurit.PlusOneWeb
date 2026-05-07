@@ -1,0 +1,102 @@
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE OR ALTER PROC [dbo].[hmlPlusOneCancelInvoice]
+    @InvoiceHeaderID int,
+    @CancelledBy varchar(128)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE
+        @HeaderStatus int,
+        @DocumentNo char(21),
+        @SupplierID char(15),
+        @CancelledMessage varchar(max),
+        @PreviousStatusDesc varchar(30);
+
+    SELECT
+        @HeaderStatus = Status,
+        @DocumentNo = DocumentNo,
+        @SupplierID = SupplierID
+    FROM dbo.hmlPlusOneInvoiceHeader WITH (UPDLOCK, HOLDLOCK)
+    WHERE InvoiceHeaderID = @InvoiceHeaderID;
+
+    IF @HeaderStatus IS NULL
+    BEGIN
+        RAISERROR('PlusOne invoice header was not found.', 16, 1);
+        RETURN;
+    END;
+
+    IF @HeaderStatus = 1
+    BEGIN
+        RAISERROR('PlusOne invoice header is currently processing and cannot be cancelled.', 16, 1);
+        RETURN;
+    END;
+
+    IF @HeaderStatus = 2
+    BEGIN
+        RAISERROR('PlusOne invoice header has already been processed and cannot be cancelled.', 16, 1);
+        RETURN;
+    END;
+
+    IF @HeaderStatus = 8
+    BEGIN
+        RAISERROR('PlusOne invoice header is already cancelled.', 16, 1);
+        RETURN;
+    END;
+
+    SET @PreviousStatusDesc = CASE
+        WHEN @HeaderStatus = 0 THEN 'Ready'
+        WHEN @HeaderStatus = 9 THEN 'Error'
+        ELSE 'Status ' + CONVERT(varchar(10), @HeaderStatus)
+    END;
+
+    SET @CancelledMessage = 'Cancelled by '
+        + LEFT(ISNULL(NULLIF(LTRIM(RTRIM(@CancelledBy)), ''), SUSER_SNAME()), 128)
+        + ' on '
+        + CONVERT(varchar(19), GETDATE(), 120)
+        + '. Previous status: '
+        + @PreviousStatusDesc
+        + '.';
+
+    UPDATE dbo.hmlPlusOneInvoiceHeader
+    SET
+        Status = 8,
+        Processed = NULL,
+        HeaderMessage = @CancelledMessage,
+        LastUpdatedDateTime = GETDATE()
+    WHERE InvoiceHeaderID = @InvoiceHeaderID;
+
+    UPDATE dbo.hmlPlusOneInvoiceLine
+    SET
+        Status = 8,
+        Processed = NULL,
+        ErrorState = NULL,
+        LineMessage = NULL,
+        LastUpdatedDateTime = GETDATE()
+    WHERE InvoiceHeaderID = @InvoiceHeaderID;
+
+    INSERT INTO dbo.hmlPlusOneMessages (
+        MessageDateTime,
+        DetailDesc1,
+        DetailDesc2,
+        MessageID,
+        MessageState,
+        MessageString1,
+        MessageString2
+    )
+    VALUES (
+        GETDATE(),
+        LEFT(RTRIM(ISNULL(@DocumentNo, '')), 100),
+        LEFT(RTRIM(ISNULL(@SupplierID, '')), 100),
+        'P1CANCEL',
+        8,
+        LEFT(ISNULL(NULLIF(LTRIM(RTRIM(@CancelledBy)), ''), SUSER_SNAME()), 255),
+        LEFT(@CancelledMessage, 255)
+    );
+END
+GO
