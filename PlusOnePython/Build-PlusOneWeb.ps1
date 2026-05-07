@@ -17,23 +17,29 @@ try {
         python -m pip install pyinstaller
     }
 
+    $compiledDir = Join-Path $scriptDir 'Compiled'
+    New-Item -ItemType Directory -Force -Path $compiledDir | Out-Null
+
     python -m PyInstaller `
-        --onefile `
+        --noconfirm `
         --name PlusOneWeb `
         --hidden-import pyodbc `
         --hidden-import paramiko `
-        --add-data "PlusOneWebSample;PlusOneWebSample" `
+        --add-data "PlusOneWeb;PlusOneWeb" `
         plusone_web.py
-
-    $compiledDir = Join-Path $scriptDir 'Compiled'
-    New-Item -ItemType Directory -Force -Path $compiledDir | Out-Null
 
     $compiledExePath = Join-Path $compiledDir 'PlusOneWeb.exe'
     Get-CimInstance Win32_Process |
         Where-Object { $_.ExecutablePath -eq $compiledExePath } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
-    Copy-Item -LiteralPath (Join-Path $scriptDir 'dist\PlusOneWeb.exe') -Destination $compiledExePath -Force
+    $compiledInternalDir = Join-Path $compiledDir '_internal'
+    if (Test-Path -LiteralPath $compiledInternalDir) {
+        Remove-Item -LiteralPath $compiledInternalDir -Recurse -Force
+    }
+
+    Copy-Item -LiteralPath (Join-Path $scriptDir 'dist\PlusOneWeb\PlusOneWeb.exe') -Destination $compiledExePath -Force
+    Copy-Item -LiteralPath (Join-Path $scriptDir 'dist\PlusOneWeb\_internal') -Destination $compiledInternalDir -Recurse -Force
 
     if (-not (Test-Path -LiteralPath (Join-Path $compiledDir 'PlusOneConfig.json'))) {
         Copy-Item -LiteralPath (Join-Path $scriptDir 'PlusOneConfig.json') -Destination (Join-Path $compiledDir 'PlusOneConfig.json') -Force

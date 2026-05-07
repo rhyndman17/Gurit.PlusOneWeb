@@ -1,7 +1,3 @@
-USE [HMNZL]
-GO
-
-/****** Object:  Table [dbo].[hmlPlusOneMessages]    Script Date: 4/14/2026 11:42:06 PM ******/
 SET ANSI_NULLS ON
 GO
 

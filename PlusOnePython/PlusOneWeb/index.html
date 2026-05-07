@@ -1,0 +1,1462 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PlusOne Invoice Processing</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f7;
+      --surface: #ffffff;
+      --surface-subtle: #f8fafb;
+      --border: #d8dee5;
+      --border-strong: #b8c2cc;
+      --text: #18212b;
+      --muted: #5d6b78;
+      --brand: #176b87;
+      --brand-dark: #0f4f64;
+      --ok: #1f7a4d;
+      --busy: #7b5a00;
+      --error: #aa2e25;
+      --ok-bg: #e8f5ee;
+      --busy-bg: #fff4d8;
+      --error-bg: #fdecea;
+      --selected: #e6f3f7;
+      --shadow: 0 8px 22px rgba(24, 33, 43, 0.08);
+      --header-panel-min: 480px;
+      --header-panel-max: clamp(480px, 52vh, 590px);
+      --line-panel-min: 190px;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app-shell {
+      height: 100vh;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    header {
+      min-height: 64px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 260px;
+    }
+
+    .mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 7px;
+      background: #176b87;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1,
+    h2 {
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    h1 {
+      font-size: 19px;
+    }
+
+    h2 {
+      font-size: 15px;
+    }
+
+    .env {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .header-actions,
+    .button-row,
+    .panel-actions,
+    .detail-meta {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+    }
+
+    .toolbar-band {
+      background: #edf1f4;
+      border-bottom: 1px solid var(--border);
+      padding: 13px 20px;
+    }
+
+    .lock-banner {
+      display: none;
+      border-bottom: 1px solid #e0b4ad;
+      background: #fdecea;
+      color: #7f241d;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .lock-banner.show {
+      display: block;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(130px, 160px) minmax(190px, 240px) minmax(240px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    select,
+    .search-input,
+    .multi-trigger {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 7px 9px;
+    }
+
+    .search-input {
+      padding-left: 31px;
+    }
+
+    .search-wrap,
+    .multi-select {
+      position: relative;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .multi-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .multi-trigger::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg) translateY(-2px);
+      flex: 0 0 auto;
+    }
+
+    .multi-menu {
+      position: absolute;
+      z-index: 5;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      display: none;
+      padding: 7px;
+      border: 1px solid var(--border-strong);
+      border-radius: 7px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .multi-select.open .multi-menu {
+      display: grid;
+      gap: 4px;
+    }
+
+    .check-option {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 5px;
+      padding: 5px 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .check-option:hover {
+      background: var(--surface-subtle);
+    }
+
+    input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--brand);
+    }
+
+    input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+    }
+
+    .select-col {
+      width: 42px;
+      min-width: 42px;
+      text-align: center;
+    }
+
+    .btn {
+      min-height: 36px;
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 8px 13px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      border-color: var(--brand);
+    }
+
+    .btn.primary {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      background: var(--brand-dark);
+    }
+
+    .btn:disabled {
+      border-color: var(--border);
+      background: #eef2f5;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    main {
+      min-height: 0;
+      padding: 16px 20px 22px;
+      display: grid;
+      grid-template-columns: minmax(680px, 1fr) minmax(560px, 720px);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .invoice-area {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(var(--line-panel-min), 1fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .metric,
+    .workspace {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      min-height: 74px;
+      padding: 12px 13px;
+    }
+
+    .metric-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 23px;
+      line-height: 1.1;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .header-workspace {
+      min-height: var(--header-panel-min);
+      max-height: var(--header-panel-max);
+    }
+
+    .panel-head {
+      min-height: 48px;
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .grid-wrap {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1180px;
+      border-collapse: collapse;
+    }
+
+    .line-table {
+      min-width: 720px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--surface-subtle);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      border-bottom-color: var(--border-strong);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      cursor: pointer;
+    }
+
+    tbody tr:hover {
+      background: #f8fbfd;
+    }
+
+    tbody tr.selected {
+      background: var(--selected);
+    }
+
+    tbody tr.disabled {
+      color: var(--muted);
+      cursor: default;
+    }
+
+    tbody tr.disabled:hover {
+      background: transparent;
+    }
+
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .text-clip {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 23px;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .badge.has-message {
+      cursor: help;
+    }
+
+    .status-tooltip {
+      position: fixed;
+      z-index: 1000;
+      max-width: min(520px, calc(100vw - 32px));
+      padding: 9px 11px;
+      border: 1px solid rgba(42, 52, 60, 0.18);
+      border-radius: 6px;
+      background: #1c2833;
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(24, 34, 45, 0.24);
+      font-size: 12px;
+      line-height: 1.4;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+      white-space: normal;
+    }
+
+    .status-tooltip.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .badge.ready,
+    .badge.processed {
+      color: var(--ok);
+      background: var(--ok-bg);
+    }
+
+    .badge.processing {
+      color: var(--busy);
+      background: var(--busy-bg);
+    }
+
+    .badge.error {
+      color: var(--error);
+      background: var(--error-bg);
+    }
+
+    .log {
+      margin: 0;
+      min-height: 0;
+      height: 100%;
+      max-height: 100%;
+      overflow: auto;
+      background: #111a22;
+      color: #dbe6ee;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      padding: 12px 13px;
+    }
+
+    .log-workspace {
+      min-height: 0;
+      height: 100%;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .log-workspace .log {
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 980px) {
+      .toolbar {
+        grid-template-columns: minmax(140px, 1fr) minmax(160px, 1fr) auto;
+      }
+
+      .button-row {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+
+      .summary-strip {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
+      }
+
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(260px, 0.5fr);
+      }
+
+      .invoice-area {
+        grid-template-rows: auto auto minmax(var(--line-panel-min), 0.8fr);
+      }
+    }
+
+    @media (max-width: 680px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-strip {
+        grid-template-columns: 1fr;
+      }
+
+      header,
+      .toolbar-band,
+      .lock-banner,
+      main {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="brand">
+        <div class="mark">P1</div>
+        <div>
+          <h1>PlusOne Invoice Processing</h1>
+          <div class="env">Download and import invoices</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="status-pill"><span class="dot"></span> Connected</span>
+        <span class="status-pill">Last import 05 May 2026 13:42</span>
+      </div>
+    </header>
+
+    <section class="toolbar-band">
+      <div class="toolbar">
+        <label>
+          Site
+          <select id="site">
+            <option>NZ</option>
+            <option>AU</option>
+          </select>
+        </label>
+        <label>
+          Status
+          <div class="multi-select" id="statusFilter">
+            <button class="multi-trigger" id="statusTrigger" type="button" aria-expanded="false">All statuses</button>
+            <div class="multi-menu" aria-label="Status filters">
+              <label class="check-option"><input type="checkbox" value="Ready" checked> Ready</label>
+              <label class="check-option"><input type="checkbox" value="Processing" checked> Processing</label>
+              <label class="check-option"><input type="checkbox" value="Processed"> Processed</label>
+              <label class="check-option"><input type="checkbox" value="Error" checked> Error</label>
+            </div>
+          </div>
+        </label>
+        <label class="search-wrap">
+          Search
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10.5 18a7.5 7.5 0 1 1 5.3-12.8 7.5 7.5 0 0 1-5.3 12.8Zm0-2a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm6.1.2 4.1 4.1-1.4 1.4-4.1-4.1 1.4-1.4Z" fill="currentColor"></path>
+          </svg>
+          <input class="search-input" id="headerSearch" type="search" placeholder="Search headers">
+        </label>
+        <div class="button-row">
+          <button class="btn" id="refresh">Refresh</button>
+          <button class="btn primary" id="downloadImport">Download</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="lock-banner" id="lockBanner"></div>
+
+    <main>
+      <div class="invoice-area">
+        <section class="summary-strip" aria-label="Invoice summary">
+          <div class="metric">
+            <div class="metric-title">Ready</div>
+            <div class="metric-value" id="readyCount">0</div>
+            <div class="metric-note">Awaiting processing</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Processing</div>
+            <div class="metric-value" id="processingCount">0</div>
+            <div class="metric-note">Currently locked</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Processed</div>
+            <div class="metric-value" id="processedCount">0</div>
+            <div class="metric-note">Completed today</div>
+          </div>
+          <div class="metric">
+            <div class="metric-title">Errors</div>
+            <div class="metric-value" id="errorCount">0</div>
+            <div class="metric-note">Needs review</div>
+          </div>
+        </section>
+
+        <section class="workspace header-workspace">
+          <div class="panel-head">
+            <h2>Documents</h2>
+            <div class="panel-actions">
+              <span class="status-pill" id="selectedCount">0 selected</span>
+              <span class="status-pill" id="headerCount">0 invoices</span>
+              <span class="status-pill" id="headerTotal">$0.00</span>
+              <button class="btn" id="processSelected" disabled>Process Selected</button>
+            </div>
+          </div>
+          <div class="grid-wrap">
+            <table aria-label="Invoice headers">
+              <thead>
+                <tr>
+                  <th class="select-col"><input type="checkbox" id="selectAllDocuments" aria-label="Select all visible documents"></th>
+                  <th>Source File</th>
+                  <th>Site</th>
+                  <th>Supplier</th>
+                  <th>Supplier Name</th>
+                  <th>Document</th>
+                  <th>Document Date</th>
+                  <th>Accounting Date</th>
+                  <th>PO Number</th>
+                  <th class="num">Subtotal</th>
+                  <th class="num">Tax</th>
+                  <th class="num">Total</th>
+                  <th>Current Status</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <div class="panel-head">
+            <h2>Document Lines</h2>
+            <div class="detail-meta">
+              <span class="status-pill" id="selectedDocument">No invoice selected</span>
+              <span class="status-pill" id="lineCount">0 lines</span>
+            </div>
+          </div>
+          <div class="grid-wrap">
+            <table class="line-table" aria-label="Invoice lines">
+              <thead>
+                <tr>
+                  <th>Account Code</th>
+                  <th class="num">Amount</th>
+                  <th>Line Description</th>
+                  <th>Line Status</th>
+                </tr>
+              </thead>
+              <tbody id="lineRows">
+                <tr>
+                  <td colspan="4">Select an invoice header.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="workspace log-workspace">
+        <div class="panel-head">
+          <h2>Import Log</h2>
+        </div>
+        <pre class="log" id="log"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let invoices = [
+      {
+        id: 101,
+        batch: "8F9C31E2",
+        site: "NZ",
+        supplier: "SUP1003",
+        supplierName: "Auckland Freight Services",
+        document: "INV-84291",
+        documentDate: "2026-05-03",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-44721",
+        subtotal: 4278.66,
+        tax: 642.99,
+        total: 4921.65,
+        status: "Ready"
+      },
+      {
+        id: 102,
+        batch: "8F9C31E2",
+        site: "NZ",
+        supplier: "SUP0881",
+        supplierName: "Tasman Packaging",
+        document: "CN-20551",
+        documentDate: "2026-05-03",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-44692",
+        subtotal: -160.00,
+        tax: -24.00,
+        total: -184.00,
+        status: "Ready"
+      },
+      {
+        id: 203,
+        batch: "A7B2100D",
+        site: "AU",
+        supplier: "SUP1442",
+        supplierName: "Melbourne Resin Supply",
+        document: "INV-19374",
+        documentDate: "2026-05-04",
+        accountingDate: "2026-05-05",
+        poNumber: "Multiple",
+        subtotal: 19891.00,
+        tax: 1989.10,
+        total: 21880.10,
+        status: "Processing"
+      },
+      {
+        id: 204,
+        batch: "A7B2100D",
+        site: "AU",
+        supplier: "SUP0729",
+        supplierName: "*** invalid vendor ***",
+        document: "INV-55901",
+        documentDate: "2026-05-04",
+        accountingDate: "2026-05-05",
+        poNumber: "",
+        subtotal: 670.65,
+        tax: 100.60,
+        total: 771.25,
+        status: "Error"
+      },
+      {
+        id: 305,
+        batch: "4D7721BF",
+        site: "NZ",
+        supplier: "SUP1098",
+        supplierName: "North Shore Engineering",
+        document: "INV-90402",
+        documentDate: "2026-05-05",
+        accountingDate: "2026-05-05",
+        poNumber: "PO-45044",
+        subtotal: 2876.29,
+        tax: 431.15,
+        total: 3307.44,
+        status: "Processed"
+      }
+    ];
+
+    const demoLinesByInvoice = {
+      101: [
+        { accountCode: "6110", amount: 820.00, description: "Freight services", status: "Ready" },
+        { accountCode: "6225", amount: 1440.00, description: "Packing materials", status: "Ready" },
+        { accountCode: "7110", amount: 2018.66, description: "Plant maintenance", status: "Ready" }
+      ],
+      102: [
+        { accountCode: "6110", amount: -160.00, description: "Freight credit", status: "Ready" }
+      ],
+      203: [
+        { accountCode: "7015", amount: 9840.00, description: "Resin delivery", status: "Processing" },
+        { accountCode: "7015", amount: 1120.00, description: "Resin surcharge", status: "Processing" },
+        { accountCode: "6340", amount: 8931.00, description: "Site consumables", status: "Processing" }
+      ],
+      204: [
+        { accountCode: "6330", amount: 670.65, description: "Missing PO number", status: "Error" }
+      ],
+      305: [
+        { accountCode: "7205", amount: 2874.30, description: "Engineering labour", status: "Processed" },
+        { accountCode: "6120", amount: 1.99, description: "Courier charges", status: "Processed" }
+      ]
+    };
+
+    const linesByInvoice = new Map(
+      Object.entries(demoLinesByInvoice).map(([key, value]) => [Number(key), value])
+    );
+    invoices = [];
+    linesByInvoice.clear();
+
+    const invoiceRows = document.getElementById("invoiceRows");
+    const lineRows = document.getElementById("lineRows");
+    const selectedDocument = document.getElementById("selectedDocument");
+    const lineCount = document.getElementById("lineCount");
+    const selectedCount = document.getElementById("selectedCount");
+    const selectAllDocuments = document.getElementById("selectAllDocuments");
+    const processSelected = document.getElementById("processSelected");
+    const refreshButton = document.getElementById("refresh");
+    const downloadButton = document.getElementById("downloadImport");
+    const lockBanner = document.getElementById("lockBanner");
+    const siteSelect = document.getElementById("site");
+    const statusFilter = document.getElementById("statusFilter");
+    const statusTrigger = document.getElementById("statusTrigger");
+    const statusChecks = [...statusFilter.querySelectorAll('input[type="checkbox"]')];
+    const headerSearch = document.getElementById("headerSearch");
+    const log = document.getElementById("log");
+    const statusTooltip = document.createElement("div");
+    const API_BASE = window.location.protocol === "file:" ? "http://127.0.0.1:8088" : "";
+    const initialSite = new URLSearchParams(window.location.search).get("site");
+    statusTooltip.className = "status-tooltip";
+    statusTooltip.setAttribute("role", "tooltip");
+    document.body.appendChild(statusTooltip);
+    if (["NZ", "AU"].includes(initialSite)) {
+      siteSelect.value = initialSite;
+    }
+
+    const money = new Intl.NumberFormat("en-NZ", {
+      style: "currency",
+      currency: "NZD"
+    });
+
+    const statusClass = (status) => status.toLowerCase();
+    const selectedDocumentIds = new Set();
+    const isProcessable = (invoice) => invoice.status !== "Processed";
+    let appLock = null;
+    let heartbeatTimer = null;
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[character]));
+    }
+
+    function statusBadge(status, message = "") {
+      const cleanStatus = escapeHtml(status);
+      const cleanMessage = String(message || "").trim();
+      const title = cleanMessage ? ` data-message="${escapeHtml(cleanMessage)}" tabindex="0" aria-label="${cleanStatus}: ${escapeHtml(cleanMessage)}"` : "";
+      const errorClass = cleanMessage ? " has-message" : "";
+      return `<span class="badge ${statusClass(status)}${errorClass}"${title}>${cleanStatus}</span>`;
+    }
+
+    function positionStatusTooltip(anchor, clientX = null, clientY = null) {
+      const rect = anchor.getBoundingClientRect();
+      const preferredX = clientX ?? rect.left + rect.width / 2;
+      const preferredY = clientY ?? rect.bottom;
+      const tooltipRect = statusTooltip.getBoundingClientRect();
+      const left = Math.min(
+        Math.max(16, preferredX - tooltipRect.width / 2),
+        window.innerWidth - tooltipRect.width - 16
+      );
+      const below = preferredY + 14 + tooltipRect.height <= window.innerHeight;
+      const top = below
+        ? preferredY + 10
+        : Math.max(16, rect.top - tooltipRect.height - 10);
+      statusTooltip.style.left = `${left}px`;
+      statusTooltip.style.top = `${top}px`;
+    }
+
+    function showStatusTooltip(anchor, clientX = null, clientY = null) {
+      const message = anchor.dataset.message;
+      if (!message) {
+        return;
+      }
+      statusTooltip.textContent = message;
+      statusTooltip.classList.add("show");
+      positionStatusTooltip(anchor, clientX, clientY);
+    }
+
+    function hideStatusTooltip() {
+      statusTooltip.classList.remove("show");
+    }
+
+    function formatMoney(value) {
+      return money.format(value).replace("NZ", "");
+    }
+
+    function formatDate(value) {
+      return value ? String(value).slice(0, 10) : "";
+    }
+
+    function currentTimestamp() {
+      return new Date().toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    function initializeLog() {
+      log.textContent = `[${currentTimestamp()}] [INFO] Connected to ${siteSelect.value}`;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function appendLog(message) {
+      log.textContent = log.textContent ? `${log.textContent}\n${message}` : message;
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function setUrlSite(site) {
+      if (window.location.protocol === "file:") {
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("site", site);
+      window.history.replaceState({}, "", url);
+    }
+
+    function clearDocumentLines(message = "Select a document header.") {
+      selectedDocument.textContent = "No document selected";
+      lineCount.textContent = "0 lines";
+      lineRows.innerHTML = `<tr><td colspan="4">${message}</td></tr>`;
+    }
+
+    function mapDocument(row) {
+      return {
+        id: Number(row.InvoiceHeaderID),
+        batch: row.Batch || row.ImportBatchID || "",
+        sourceFile: row.FileName || "",
+        site: siteSelect.value,
+        supplier: row.SupplierID || "",
+        supplierName: row.VendorName || "",
+        document: row.DocumentNo || "",
+        documentDate: formatDate(row.DocumentDate),
+        accountingDate: formatDate(row.AccountingValueDate),
+        poNumber: row.PurchaseOrderNo || "",
+        subtotal: Number(row.SubtotalExclGST || 0),
+        tax: Number(row.TotalGST || 0),
+        total: Number(row.DocumentTotal || 0),
+        status: row.HeaderStatusDesc || "Status " + row.HeaderStatus,
+        message: row.HeaderMessage || ""
+      };
+    }
+
+    function mapLine(row) {
+      return {
+        accountCode: row.LedgerCode || "",
+        amount: Number(row.LineValueExclGST || 0),
+        description: row.LineDescription || "",
+        status: row.LineStatusDesc || "Status " + row.LineStatus,
+        message: row.LineMessage || row.HeaderMessage || ""
+      };
+    }
+
+    function apiUrl(path) {
+      return `${API_BASE}${path}`;
+    }
+
+    function friendlyFetchError(error) {
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        return "Cannot reach the PlusOne web service. Open http://127.0.0.1:8088/ or start plusone_web.py.";
+      }
+      return error.message;
+    }
+
+    function setLockedState(isLocked, message = "") {
+      lockBanner.textContent = message;
+      lockBanner.classList.toggle("show", isLocked);
+      refreshButton.disabled = isLocked;
+      downloadButton.disabled = isLocked;
+      processSelected.disabled = isLocked || selectedDocumentIds.size === 0;
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(apiUrl(url), options);
+      const payload = await response.json();
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || `Request failed with status ${response.status}`);
+      }
+      return payload;
+    }
+
+    async function acquireLock() {
+      stopHeartbeat();
+      appLock = null;
+      setLockedState(false);
+
+      const payload = await fetchJson("/api/lock/acquire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site: siteSelect.value })
+      });
+
+      if (payload.locked) {
+        const lock = payload.lock || {};
+        const message = `PlusOne is locked by ${lock.userName || "another user"} on ${lock.machineName || "another machine"} since ${formatDate(lock.acquiredDateTime)}.`;
+        setLockedState(true, message);
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [WARN] ${message}`);
+        return false;
+      }
+
+      appLock = payload.lock;
+      startHeartbeat();
+      return true;
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      heartbeatTimer = window.setInterval(async () => {
+        if (!appLock) {
+          return;
+        }
+        try {
+          const payload = await fetchJson("/api/lock/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ site: appLock.site, lockId: appLock.lockId })
+          });
+          if (!payload.ok) {
+            throw new Error("Application lock was lost.");
+          }
+        } catch (error) {
+          appLock = null;
+          stopHeartbeat();
+          setLockedState(true, friendlyFetchError(error));
+        }
+      }, 30000);
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatTimer) {
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+    }
+
+    function releaseLock() {
+      if (!appLock) {
+        return;
+      }
+      const payload = JSON.stringify({ site: appLock.site, lockId: appLock.lockId });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(apiUrl("/api/lock/release"), payload);
+      } else {
+        fetch(apiUrl("/api/lock/release"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true
+        });
+      }
+      appLock = null;
+      stopHeartbeat();
+    }
+
+    async function loadDocuments() {
+      try {
+        if (!appLock) {
+          const acquired = await acquireLock();
+          if (!acquired) {
+            invoices = [];
+            selectedDocumentIds.clear();
+            renderSummary([]);
+            invoiceRows.innerHTML = '<tr><td colspan="13">Application is locked by another user.</td></tr>';
+            clearDocumentLines("Application is locked by another user.");
+            return;
+          }
+        }
+        clearDocumentLines("Loading documents.");
+        invoices = [];
+        selectedDocumentIds.clear();
+        renderSummary([]);
+        invoiceRows.innerHTML = '<tr><td colspan="13">Loading documents.</td></tr>';
+        const payload = await fetchJson(`/api/documents?site=${encodeURIComponent(siteSelect.value)}`);
+        invoices = payload.documents.map(mapDocument);
+        linesByInvoice.clear();
+        selectedDocumentIds.clear();
+        renderInvoices();
+      } catch (error) {
+        invoices = [];
+        selectedDocumentIds.clear();
+        clearDocumentLines("Documents could not be loaded.");
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+        renderInvoices();
+      }
+    }
+
+    function changeSite() {
+      releaseLock();
+      setUrlSite(siteSelect.value);
+      selectedDocumentIds.clear();
+      linesByInvoice.clear();
+      headerSearch.value = "";
+      initializeLog();
+      loadDocuments();
+    }
+
+    async function loadLines(invoiceId) {
+      if (linesByInvoice.has(invoiceId)) {
+        return linesByInvoice.get(invoiceId);
+      }
+      const payload = await fetchJson(`/api/documents/${invoiceId}/lines?site=${encodeURIComponent(siteSelect.value)}`);
+      const lines = payload.lines.map(mapLine);
+      linesByInvoice.set(invoiceId, lines);
+      return lines;
+    }
+
+    function selectedStatuses() {
+      return statusChecks.filter((check) => check.checked).map((check) => check.value);
+    }
+
+    function updateStatusTrigger() {
+      const statuses = selectedStatuses();
+      if (statuses.length === statusChecks.length) {
+        statusTrigger.textContent = "All statuses";
+      } else if (statuses.length === 0) {
+        statusTrigger.textContent = "No statuses";
+      } else if (statuses.length === 1) {
+        statusTrigger.textContent = statuses[0];
+      } else {
+        statusTrigger.textContent = `${statuses.length} statuses`;
+      }
+    }
+
+    function invoiceSearchText(invoice) {
+      return [
+        invoice.batch,
+        invoice.sourceFile,
+        invoice.site,
+        invoice.supplier,
+        invoice.supplierName,
+        invoice.document,
+        invoice.documentDate,
+        invoice.accountingDate,
+        invoice.poNumber,
+        formatMoney(invoice.subtotal),
+        formatMoney(invoice.tax),
+        formatMoney(invoice.total),
+        invoice.status
+      ].join(" ").toLowerCase();
+    }
+
+    function visibleInvoices() {
+      const statuses = selectedStatuses();
+      const searchText = headerSearch.value.trim().toLowerCase();
+      return invoices.filter((invoice) => {
+        const siteMatches = invoice.site === siteSelect.value;
+        const statusMatches = statuses.includes(invoice.status);
+        const searchMatches = !searchText || invoiceSearchText(invoice).includes(searchText);
+        return siteMatches && statusMatches && searchMatches;
+      });
+    }
+
+    function renderSummary(rows) {
+      const siteRows = invoices;
+      document.getElementById("readyCount").textContent = siteRows.filter((row) => row.status === "Ready").length;
+      document.getElementById("processingCount").textContent = siteRows.filter((row) => row.status === "Processing").length;
+      document.getElementById("processedCount").textContent = siteRows.filter((row) => row.status === "Processed").length;
+      document.getElementById("errorCount").textContent = siteRows.filter((row) => row.status === "Error").length;
+      document.getElementById("headerCount").textContent = `${rows.length} invoice${rows.length === 1 ? "" : "s"}`;
+      document.getElementById("headerTotal").textContent = formatMoney(rows.reduce((total, row) => total + row.total, 0));
+      updateDocumentSelectionState(rows);
+    }
+
+    function updateDocumentSelectionState(visibleRows = visibleInvoices()) {
+      const processableRows = visibleRows.filter(isProcessable);
+      const processableIds = processableRows.map((invoice) => invoice.id);
+      const selectedVisibleCount = processableIds.filter((id) => selectedDocumentIds.has(id)).length;
+      selectedCount.textContent = `${selectedVisibleCount} selected`;
+      processSelected.disabled = selectedVisibleCount === 0;
+      selectAllDocuments.disabled = processableIds.length === 0;
+      selectAllDocuments.checked = processableIds.length > 0 && selectedVisibleCount === processableIds.length;
+      selectAllDocuments.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < processableIds.length;
+    }
+
+    function renderInvoices() {
+      const rows = visibleInvoices();
+      selectedDocumentIds.forEach((id) => {
+        const invoice = invoices.find((item) => item.id === id);
+        if (invoice && !isProcessable(invoice)) {
+          selectedDocumentIds.delete(id);
+        }
+      });
+      renderSummary(rows);
+      invoiceRows.innerHTML = rows.map((invoice) => `
+        <tr data-id="${invoice.id}" class="${isProcessable(invoice) ? "" : "disabled"}" tabindex="0">
+          <td class="select-col"><input type="checkbox" class="document-select" value="${invoice.id}" aria-label="Select ${invoice.document}" ${selectedDocumentIds.has(invoice.id) ? "checked" : ""} ${isProcessable(invoice) ? "" : "disabled"}></td>
+          <td class="text-clip" title="${invoice.sourceFile || invoice.batch}">${invoice.sourceFile || invoice.batch}</td>
+          <td>${invoice.site}</td>
+          <td>${invoice.supplier}</td>
+          <td class="text-clip" title="${invoice.supplierName}">${invoice.supplierName}</td>
+          <td>${invoice.document}</td>
+          <td>${invoice.documentDate}</td>
+          <td>${invoice.accountingDate}</td>
+          <td>${invoice.poNumber || "-"}</td>
+          <td class="num">${formatMoney(invoice.subtotal)}</td>
+          <td class="num">${formatMoney(invoice.tax)}</td>
+          <td class="num">${formatMoney(invoice.total)}</td>
+          <td>${statusBadge(invoice.status, invoice.message)}</td>
+        </tr>
+      `).join("");
+
+      [...invoiceRows.querySelectorAll("tr")].forEach((row) => {
+        row.addEventListener("click", () => {
+          selectInvoice(Number(row.dataset.id));
+        });
+        row.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectInvoice(Number(row.dataset.id));
+          }
+        });
+      });
+
+      [...invoiceRows.querySelectorAll(".document-select")].forEach((checkbox) => {
+        checkbox.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+
+        checkbox.addEventListener("change", () => {
+          const id = Number(checkbox.value);
+          const invoice = invoices.find((item) => item.id === id);
+          if (checkbox.checked && invoice && isProcessable(invoice)) {
+            selectedDocumentIds.add(id);
+          } else {
+            selectedDocumentIds.delete(id);
+          }
+          updateDocumentSelectionState(rows);
+        });
+      });
+
+      if (rows.length) {
+        selectInvoice(rows[0].id);
+      } else {
+        selectedDocument.textContent = "No invoice selected";
+        lineCount.textContent = "0 lines";
+        lineRows.innerHTML = '<tr><td colspan="4">No invoices match the current filters.</td></tr>';
+      }
+    }
+
+    async function selectInvoice(id) {
+      const invoice = invoices.find((item) => item.id === id);
+      if (!invoice) {
+        return;
+      }
+
+      [...invoiceRows.querySelectorAll("tr")].forEach((row) => {
+        row.classList.toggle("selected", Number(row.dataset.id) === id);
+      });
+
+      selectedDocument.textContent = invoice.document;
+      lineCount.textContent = "Loading";
+      lineRows.innerHTML = '<tr><td colspan="4">Loading document lines.</td></tr>';
+
+      try {
+        const rows = await loadLines(id);
+        lineCount.textContent = `${rows.length} line${rows.length === 1 ? "" : "s"}`;
+        lineRows.innerHTML = rows.map((line) => `
+          <tr>
+            <td>${line.accountCode}</td>
+            <td class="num">${formatMoney(line.amount)}</td>
+            <td class="text-clip" title="${line.description}">${line.description}</td>
+            <td>${statusBadge(line.status, line.message)}</td>
+          </tr>
+        `).join("");
+      } catch (error) {
+        lineCount.textContent = "0 lines";
+        lineRows.innerHTML = `<tr><td colspan="4">${error.message}</td></tr>`;
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      }
+    }
+
+    downloadButton.addEventListener("click", async () => {
+      if (!appLock) {
+        return;
+      }
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      appendLog(`[${now}] [INFO] Queued download for ${siteSelect.value}`);
+      try {
+        const payload = await fetchJson("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ site: siteSelect.value, lockId: appLock.lockId })
+        });
+        (payload.log || []).forEach(appendLog);
+        await loadDocuments();
+      } catch (error) {
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      }
+    });
+
+    processSelected.addEventListener("click", async () => {
+      if (!appLock) {
+        return;
+      }
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      const selectedVisible = visibleInvoices().filter((invoice) => selectedDocumentIds.has(invoice.id) && isProcessable(invoice));
+      if (selectedVisible.length === 0) {
+        return;
+      }
+      const documents = selectedVisible.map((invoice) => invoice.document).join(", ");
+      appendLog(`[${now}] [INFO] Processing ${documents}`);
+      processSelected.disabled = true;
+
+      try {
+        const response = await fetch(apiUrl("/api/process"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            site: siteSelect.value,
+            lockId: appLock.lockId,
+            invoiceHeaderIds: selectedVisible.map((invoice) => invoice.id)
+          })
+        });
+        const payload = await response.json();
+        (payload.results || []).forEach((result) => {
+          const invoice = selectedVisible.find((row) => row.id === result.invoiceHeaderId);
+          const label = invoice ? invoice.document : `Header ${result.invoiceHeaderId}`;
+          if (result.ok) {
+            appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [INFO] Processed ${label}`);
+          } else {
+            appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${label}: ${result.error || "Processing failed"}`);
+          }
+        });
+        if (!response.ok && !payload.results) {
+          throw new Error(payload.error || `Request failed with status ${response.status}`);
+        }
+        await loadDocuments();
+      } catch (error) {
+        appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
+      } finally {
+        renderInvoices();
+      }
+    });
+
+    selectAllDocuments.addEventListener("change", () => {
+      const rows = visibleInvoices().filter(isProcessable);
+      rows.forEach((invoice) => {
+        if (selectAllDocuments.checked) {
+          selectedDocumentIds.add(invoice.id);
+        } else {
+          selectedDocumentIds.delete(invoice.id);
+        }
+      });
+      renderInvoices();
+    });
+
+    statusTrigger.addEventListener("click", () => {
+      const isOpen = statusFilter.classList.toggle("open");
+      statusTrigger.setAttribute("aria-expanded", String(isOpen));
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!statusFilter.contains(event.target)) {
+        statusFilter.classList.remove("open");
+        statusTrigger.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    document.addEventListener("mouseover", (event) => {
+      const badge = event.target.closest(".badge.has-message");
+      if (badge) {
+        showStatusTooltip(badge, event.clientX, event.clientY);
+      }
+    });
+
+    document.addEventListener("mousemove", (event) => {
+      const badge = event.target.closest(".badge.has-message");
+      if (badge && statusTooltip.classList.contains("show")) {
+        positionStatusTooltip(badge, event.clientX, event.clientY);
+      }
+    });
+
+    document.addEventListener("mouseout", (event) => {
+      if (event.target.closest(".badge.has-message")) {
+        hideStatusTooltip();
+      }
+    });
+
+    document.addEventListener("focusin", (event) => {
+      const badge = event.target.closest(".badge.has-message");
+      if (badge) {
+        showStatusTooltip(badge);
+      }
+    });
+
+    document.addEventListener("focusout", (event) => {
+      if (event.target.closest(".badge.has-message")) {
+        hideStatusTooltip();
+      }
+    });
+
+    statusChecks.forEach((check) => {
+      check.addEventListener("change", () => {
+        updateStatusTrigger();
+        renderInvoices();
+      });
+    });
+
+    refreshButton.addEventListener("click", loadDocuments);
+    siteSelect.addEventListener("change", changeSite);
+    headerSearch.addEventListener("input", renderInvoices);
+    window.addEventListener("pagehide", releaseLock);
+    window.addEventListener("beforeunload", releaseLock);
+
+    updateStatusTrigger();
+    initializeLog();
+    loadDocuments();
+  </script>
+</body>
+</html>

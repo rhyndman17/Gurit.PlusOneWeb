@@ -157,6 +157,8 @@ def odbc_connection_string(connection_string: str) -> str:
     user = parts.get("user id") or parts.get("uid")
     password = parts.get("password") or parts.get("pwd")
     trusted = parts.get("trusted_connection") or parts.get("integrated security")
+    encrypt = parts.get("encrypt")
+    trust_server_certificate = parts.get("trustservercertificate")
     driver = os.environ.get("PLUSONE_ODBC_DRIVER", "ODBC Driver 17 for SQL Server")
 
     rebuilt = [f"DRIVER={{{driver}}}"]
@@ -170,6 +172,8 @@ def odbc_connection_string(connection_string: str) -> str:
         rebuilt.append(f"PWD={password}")
     if trusted:
         rebuilt.append(f"Trusted_Connection={trusted}")
+    rebuilt.append(f"Encrypt={encrypt or 'no'}")
+    rebuilt.append(f"TrustServerCertificate={trust_server_certificate or 'yes'}")
     return ";".join(rebuilt) + ";"
 
 
@@ -292,7 +296,7 @@ def parse_plusone_csv(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
                 "SourceLineNo": row_number,
                 "GLDimension1": (row.get("GLDimension1") or "").strip(),
                 "GLDimension2": (row.get("GLDimension2") or "").strip(),
-                "SupplierID": (row.get("SupplierID") or "").strip(),
+                "SupplierID": (row.get("SupplierID") or "").strip().upper(),
                 "DocumentDate": document_date,
                 "AccountingValueDate": accounting_date,
                 "DocumentNo": (row.get("DocumentNo") or "").strip().upper(),

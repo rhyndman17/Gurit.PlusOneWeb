@@ -21,7 +21,7 @@ import plusone
 
 
 ROOT = Path(__file__).resolve().parent
-WEB_ROOT = Path(getattr(sys, "_MEIPASS", ROOT)) / "PlusOneWebSample"
+WEB_ROOT = Path(getattr(sys, "_MEIPASS", ROOT)) / "PlusOneWeb"
 VALID_SITES = {"NZ", "AU"}
 APP_LOCK_NAME = "PlusOneWeb"
 
@@ -59,7 +59,8 @@ SELECT
     TotalGST,
     DocumentTotal,
     HeaderStatus,
-    HeaderStatusDesc
+    HeaderStatusDesc,
+    HeaderMessage
 FROM dbo.vw_hmlPlusOneInvoiceHeader
 OUTER APPLY (
     SELECT
@@ -92,7 +93,9 @@ SELECT
     LineValueExclGST,
     LineDescription,
     LineStatus,
-    LineStatusDesc
+    LineStatusDesc,
+    LineMessage,
+    HeaderMessage
 FROM dbo.vw_hmlPlusOneInvoiceLineDetail
 WHERE InvoiceHeaderID = ?
 ORDER BY SourceLineNo, InvoiceLineID
@@ -177,26 +180,32 @@ WHERE AppName = ?
 
             existing = lock_row_payload(row)
             same_lock = requested_lock_id and str(row[1]).lower() == requested_lock_id.lower()
+            same_owner = (
+                str(row[3] or "").lower() == user_name.lower()
+                and str(row[4] or "").lower() == machine_name.lower()
+            )
             is_stale = int(row[7]) == 1
-            if same_lock or is_stale:
+            if same_lock or same_owner or is_stale:
                 cursor.execute(
                     """
 UPDATE dbo.hmlPlusOneAppLock
 SET
-    LockID = CASE WHEN ? IS NULL THEN NEWID() ELSE CONVERT(uniqueidentifier, ?) END,
+    LockID = CASE WHEN ? IS NULL OR ? = 1 THEN NEWID() ELSE CONVERT(uniqueidentifier, ?) END,
     Site = ?,
     UserName = ?,
     MachineName = ?,
-    AcquiredDateTime = CASE WHEN ? IS NULL THEN GETDATE() ELSE AcquiredDateTime END,
+    AcquiredDateTime = CASE WHEN ? IS NULL OR ? = 1 THEN GETDATE() ELSE AcquiredDateTime END,
     LastHeartbeatDateTime = GETDATE()
 WHERE AppName = ?
 """,
                     requested_lock_id,
+                    1 if same_owner else 0,
                     requested_lock_id,
                     site,
                     user_name,
                     machine_name,
                     requested_lock_id,
+                    1 if same_owner else 0,
                     APP_LOCK_NAME,
                 )
                 cursor.execute(
@@ -307,6 +316,40 @@ def run_download_import(config_path: Path, site: str) -> dict[str, Any]:
         logger.removeHandler(capture)
 
 
+def process_selected_documents(config_path: Path, site: str, invoice_header_ids: list[int]) -> dict[str, Any]:
+    if not invoice_header_ids:
+        raise ValueError("At least one document must be selected.")
+
+    site_config = plusone.load_site_config(config_path, site)
+    results: list[dict[str, Any]] = []
+
+    with plusone.sql_connection(site_config) as connection:
+        cursor = connection.cursor()
+        for invoice_header_id in invoice_header_ids:
+            try:
+                cursor.execute(
+                    "EXEC dbo.hmlPlusOneProcessInvoice @InvoiceHeaderID = ?, @BatchID = ?",
+                    invoice_header_id,
+                    "PLUSONE",
+                )
+                connection.commit()
+                results.append({"invoiceHeaderId": invoice_header_id, "ok": True})
+            except Exception as exc:
+                try:
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                results.append({"invoiceHeaderId": invoice_header_id, "ok": False, "error": str(exc)})
+
+    failed = [result for result in results if not result["ok"]]
+    return {
+        "ok": len(failed) == 0,
+        "processed": len(results) - len(failed),
+        "failed": len(failed),
+        "results": results,
+    }
+
+
 class PlusOneWebHandler(SimpleHTTPRequestHandler):
     config_path: Path
     launch_user: str
@@ -373,7 +416,7 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path not in {"/api/download", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"}:
+        if parsed.path not in {"/api/download", "/api/process", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"}:
             self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint.")
             return
 
@@ -407,6 +450,15 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
 
             if not verify_app_lock(self.config_path, site, str(payload.get("lockId") or "")):
                 self.send_error_json(HTTPStatus.CONFLICT, "The PlusOne application lock is not held by this session.")
+                return
+
+            if parsed.path == "/api/process":
+                raw_ids = payload.get("invoiceHeaderIds", [])
+                if not isinstance(raw_ids, list):
+                    raise ValueError("invoiceHeaderIds must be a list.")
+                invoice_header_ids = [int(value) for value in raw_ids]
+                result = process_selected_documents(self.config_path, site, invoice_header_ids)
+                self.send_json(result, HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT)
                 return
 
             result = run_download_import(self.config_path, site)

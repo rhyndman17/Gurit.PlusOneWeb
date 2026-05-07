@@ -5,39 +5,40 @@
 This document explains the current PlusOne integration workflow across:
 
 - inbound invoice download and staging
-- assumed Dynamics GP user interface processing
+- PlusOne web application review and processing
 - SQL processing into Dynamics GP Payables
 - outbound extract generation
 - outbound file upload back to PlusOne
 - supporting logs, messages, configuration, and archive behavior
 
-This document is written as if the Dynamics GP user interface is complete, even though the UI build is still in progress.
+The production review screen is the PlusOne web application launched from Dynamics GP.
 
 ## Scope And Assumptions
 
 - Two sites are supported: `NZ` and `AU`.
 - Each site has its own SFTP credentials, local working folders, and SQL database.
-- PowerShell handles file transfer and file staging.
+- Python handles file transfer and file staging.
 - SQL Server handles staging, processing state, and GP integration procedures.
-- The GP UI is assumed to provide a header-level browse, line-level drilldown, and process actions.
-- WinSCP command-line is the SFTP engine used by the PowerShell scripts.
+- The PlusOne web application provides a header-level browse, line-level drilldown, download/import, and selected-document processing actions.
+- Paramiko is the SFTP engine used by the Python integration layer.
 
 ## High-Level Architecture
 
 There are two main flows:
 
 1. Inbound invoice flow
-   PlusOne SFTP outbound folder -> PowerShell download/import -> SQL staging header/line tables -> GP UI review/process -> Dynamics GP PM transaction creation
+   PlusOne SFTP outbound folder -> download/import -> SQL staging header/line tables -> web review/process -> Dynamics GP PM transaction creation
 
 2. Outbound master data / purchasing flow
-   SQL extract queries -> local CSV output files -> PowerShell upload -> PlusOne SFTP inbound folder
+   SQL extract queries -> local CSV output files -> Python upload -> PlusOne SFTP inbound folder
 
 ## Site Separation
 
 Site-specific configuration is stored in:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/PlusOneConfig.json`
-- `Source Process Folders/PlusOneWorkspace/Scripts/PlusOneConfig.json.template`
+- `PlusOnePython/PlusOneConfig.json`
+- `PlusOnePython/PlusOneConfig.local.template.json`
+- `PlusOnePython/Compiled/PlusOneConfig.json`
 
 Each site entry defines:
 
@@ -49,23 +50,41 @@ Each site entry defines:
 
 The runtime `PlusOneConfig.json` contains live credentials and should be protected. The template is the safer reference for deployment packaging.
 
+## Database Collation Notes
+
+The site databases may use a binary/case-sensitive collation such as `Latin1_General_BIN`.
+
+To avoid missed joins or false validation errors:
+
+- inbound `SupplierID` values are normalized to uppercase during import
+- batch staging uppercases `SupplierID` and `DocumentNo` when grouping and linking headers/lines
+- processing uppercases the selected header supplier/document values before GP lookups
+- the header view joins `PM00200` using the uppercased staged supplier ID
+- line account validation compares staged `LedgerCode` to `GL00105.ACTNUMST` using an uppercased staged value
+
+GP vendor IDs and GL account strings are expected to match the normalized uppercase form used by the integration.
+
 ## Inbound Invoice Workflow
 
 ### 1. Download And Import
 
-The main inbound engine is:
+The main inbound engine is implemented in:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/PlusOne-Download-Import.ps1`
+- `PlusOnePython/plusone.py`
 
-Site wrapper scripts are:
+The compiled web application can run the same download/import workflow through:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/Download-NZ.ps1`
-- `Source Process Folders/PlusOneWorkspace/Scripts/Download-AU.ps1`
+- `POST /api/download`
+
+Compiled helper scripts include:
+
+- `PlusOnePython/Compiled/Run-PlusOne.ps1`
+- `PlusOnePython/Compiled/Run-PlusOneWeb.ps1`
 
 The download/import script performs these steps:
 
 1. Load the site configuration.
-2. Connect to the PlusOne SFTP endpoint using WinSCP.
+2. Connect to the PlusOne SFTP endpoint using Paramiko.
 3. Download matching CSV files from the configured remote outbound folder.
 4. Validate the CSV structure and data types.
 5. Bulk insert imported rows into `dbo.hmlPlusOneInvoiceLine`.
@@ -75,7 +94,7 @@ The download/import script performs these steps:
 
 ### 2. CSV Validation
 
-Inbound CSV validation is handled inside `PlusOne-Download-Import.ps1`.
+Inbound CSV validation is handled inside `PlusOnePython/plusone.py`.
 
 The script validates:
 
@@ -107,47 +126,65 @@ and creates one row per invoice in:
 
 - `dbo.hmlPlusOneInvoiceHeader`
 
-This split staging model is the basis for the GP UI.
+This split staging model is the basis for the PlusOne web review UI.
 
-### 4. GP UI Review
+### 4. Web UI Review
 
-The GP UI is assumed to expose the staging data like this:
+The PlusOne web application exposes the staging data like this:
 
 - a header browse bound to `dbo.vw_hmlPlusOneInvoiceHeader`
 - a line drilldown bound to `dbo.vw_hmlPlusOneInvoiceLineDetail`
-- a process button that calls `dbo.hmlPlusOneProcessInvoiceHeader`
+- a Process Selected action that calls the web API endpoint `/api/process`
+- `/api/process` calls `dbo.hmlPlusOneProcessInvoice` once for each selected `InvoiceHeaderID`
 - an optional process-all action that calls `dbo.hmlPlusOneCreateNonPOInvoice`
+- an application lock backed by `dbo.hmlPlusOneAppLock`
 
 The intended user workflow is:
 
-1. Open the PlusOne invoice staging screen in GP.
+1. Launch the PlusOne web application from GP.
 2. Review header-level invoices waiting in `Ready` status.
 3. Open line drilldown if the invoice has line errors or needs review.
-4. Process one invoice header at a time.
-5. Review success or error feedback directly in the same screen.
+4. Select one or more processable invoice headers.
+5. Process selected documents.
+6. The web app submits selected headers one at a time for best error isolation.
+7. Review success or error feedback directly in the same screen.
+
+Error feedback is surfaced through status badges:
+
+- header status badges show `HeaderMessage` in an in-app hover tooltip when a message exists
+- line status badges show `LineMessage`, falling back to `HeaderMessage`, in an in-app hover tooltip
+- detailed line messages remain available in `dbo.vw_hmlPlusOneInvoiceLineDetail`
 
 ### 5. SQL Processing Into GP
 
 The processing flow is centered around:
 
-- `dbo.hmlPlusOneProcessInvoiceHeader`
+- `dbo.hmlPlusOneProcessInvoice`
 
 This procedure:
 
 1. Locks the selected header.
 2. Resets header and line processing messages for that invoice.
 3. Checks for duplicate document numbers already in GP.
-4. Validates the supplier and currency setup in GP.
-5. Sums line amounts into a document total.
-6. Creates the PM voucher number.
-7. Creates the PM tax record.
-8. Creates the PM transaction header.
-9. Writes the PlusOne image URL into GP notes.
-10. Deletes the default GP expense distribution.
-11. Rebuilds distributions from the staged invoice lines.
-12. Marks the header and lines as processed on success.
-13. Marks the header and offending line as error on failure.
-14. Writes an audit message to `dbo.hmlPlusOneMessages`.
+4. Validates the supplier exists in `PM00200`.
+5. Reads vendor currency from `PM00200.CURNCYID`.
+6. Reads vendor tax schedule from `PM00200.TAXSCHID` and errors if it is blank.
+7. Reads company functional currency from `MC40000.FUNLCURR`.
+8. Pre-validates line account codes against `GL00105.ACTNUMST`.
+9. Marks every invalid line with its own `LineMessage`.
+10. Writes a combined header validation summary to `HeaderMessage` and stops before GP creation if pre-validation fails.
+11. Sums line amounts into a document total.
+12. Creates the PM voucher number.
+13. Creates the PM tax record.
+14. Creates the PM transaction header.
+15. Writes the PlusOne image URL into GP notes.
+16. Deletes the default GP expense distribution.
+17. Rebuilds distributions from the staged invoice lines.
+18. Uses standard distribution logic when vendor/PM currency matches functional currency.
+19. Uses multicurrency distribution logic when vendor/PM currency differs from functional currency.
+20. Marks the header and lines as processed on success.
+21. Marks the header and offending line as error on failure when the failing line is identifiable.
+22. Writes an audit message to `dbo.hmlPlusOneMessages`.
 
 The process-all wrapper is:
 
@@ -155,18 +192,19 @@ The process-all wrapper is:
 
 This wrapper finds all header rows in `Status = 0` and processes them one by one using the single-header procedure.
 
+The web application does not use this wrapper for selected processing. It calls `dbo.hmlPlusOneProcessInvoice` once per selected header so each document can succeed or fail independently.
+
 ## Outbound Extract And Upload Workflow
 
 ### 1. Extract Generation
 
-The main extract engine is:
+The main extract engine is implemented in:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/PlusOne-Extract.ps1`
+- `PlusOnePython/plusone.py`
 
-Site wrapper scripts are:
+Compiled helper scripts include:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/Extract-NZ.ps1`
-- `Source Process Folders/PlusOneWorkspace/Scripts/Extract-AU.ps1`
+- `PlusOnePython/Compiled/Run-ExtractUpload.ps1`
 
 The extract script currently supports these data sets:
 
@@ -174,7 +212,7 @@ The extract script currently supports these data sets:
 - `SUP` for supplier master
 - `PUR` for purchase orders
 
-The extract definitions are embedded inside `Get-ExtractionDefinitions` in `PlusOne-Extract.ps1`.
+The extract definitions are embedded in the Python extraction definitions in `PlusOnePython/plusone.py`.
 
 For each requested extract, the script:
 
@@ -185,14 +223,13 @@ For each requested extract, the script:
 
 ### 2. Upload
 
-The main upload engine is:
+The main upload engine is implemented in:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/PlusOne-Upload.ps1`
+- `PlusOnePython/plusone.py`
 
-Site wrapper scripts are:
+Compiled helper scripts include:
 
-- `Source Process Folders/PlusOneWorkspace/Scripts/Upload-NZ.ps1`
-- `Source Process Folders/PlusOneWorkspace/Scripts/Upload-AU.ps1`
+- `PlusOnePython/Compiled/Run-ExtractUpload.ps1`
 
 The upload script:
 
@@ -211,7 +248,7 @@ Stores one row per staged invoice for UI review and processing control.
 
 Key columns:
 
-- `InvoiceHeaderID`: primary key used by the GP UI and processing procedure
+- `InvoiceHeaderID`: primary key used by the web UI and processing procedure
 - `ImportBatchID`: links related imported headers and lines back to one import batch
 - `SupplierID`
 - `DocumentNo`
@@ -258,15 +295,15 @@ Key columns:
 
 Behavior:
 
-- bulk loaded by `PlusOne-Download-Import.ps1`
+- bulk loaded by `PlusOnePython/plusone.py`
 - grouped into headers by `dbo.hmlPlusOneStageImportedBatch`
-- read by `dbo.hmlPlusOneProcessInvoiceHeader` to build GP distributions
+- read by `dbo.hmlPlusOneProcessInvoice` to build GP distributions
 - shown to the user through the line detail view
 
 ### `dbo.vw_hmlPlusOneInvoiceHeader`
 
 Purpose:
-Header-only browse view for the GP UI.
+Header-only browse view for the web UI.
 
 Provides:
 
@@ -285,7 +322,7 @@ Recommended use:
 ### `dbo.vw_hmlPlusOneInvoiceLineDetail`
 
 Purpose:
-Detailed line drilldown view for the GP UI.
+Detailed line drilldown view for the web UI.
 
 Provides:
 
@@ -312,7 +349,7 @@ Responsibilities:
 - link line rows to the created header rows
 - reset line processing state for the imported batch
 
-### `dbo.hmlPlusOneProcessInvoiceHeader`
+### `dbo.hmlPlusOneProcessInvoice`
 
 Purpose:
 Process one selected staged invoice into Dynamics GP.
@@ -320,7 +357,9 @@ Process one selected staged invoice into Dynamics GP.
 Responsibilities:
 
 - enforce one-header-at-a-time processing
-- validate duplicates and supplier setup
+- validate duplicates, supplier setup, vendor tax schedule, vendor currency, functional currency, and line account codes
+- write all pre-validation line account errors back to the matching line rows
+- write a combined pre-validation summary to the header row
 - create PM tax, header, notes, and distributions
 - preserve error context at header and line level
 - update statuses and audit trail
@@ -333,7 +372,7 @@ Legacy-compatible batch wrapper around the new single-header process.
 Responsibilities:
 
 - select all `Ready` headers
-- call `dbo.hmlPlusOneProcessInvoiceHeader` for each one
+- call `dbo.hmlPlusOneProcessInvoice` for each one
 
 Recommended use:
 
@@ -343,7 +382,7 @@ Recommended use:
 ### `dbo.hmlPlusOneMessages`
 
 Purpose:
-Simple operational message and audit table used by PowerShell and SQL procedures.
+Simple operational message and audit table used by Python and SQL procedures.
 
 Typical message IDs include:
 
@@ -370,11 +409,73 @@ The original single-table staging design still exists in the repository as:
 
 It is now considered legacy. The new split staging design uses `hmlPlusOneInvoiceHeader` and `hmlPlusOneInvoiceLine` instead.
 
-## PowerShell Scripts
+## Web Application
 
-### `PlusOne-Download-Import.ps1`
+The production review and processing UI is implemented in:
 
-Shared inbound invoice engine.
+- `PlusOnePython/plusone_web.py`
+- `PlusOnePython/PlusOneWeb/index.html`
+- `PlusOnePython/Compiled/PlusOneWeb.exe`
+
+The compiled executable is built by:
+
+- `PlusOnePython/Build-PlusOneWeb.ps1`
+
+The compiled build is a PyInstaller one-folder build. The executable remains:
+
+- `PlusOnePython/Compiled/PlusOneWeb.exe`
+
+Supporting runtime files are copied under:
+
+- `PlusOnePython/Compiled/_internal`
+
+### Web API Endpoints
+
+The web application exposes these main endpoints:
+
+- `GET /api/documents?site=NZ|AU`
+  Returns header browse rows from `dbo.vw_hmlPlusOneInvoiceHeader`, including `HeaderMessage`.
+
+- `GET /api/documents/{InvoiceHeaderID}/lines?site=NZ|AU`
+  Returns line detail rows from `dbo.vw_hmlPlusOneInvoiceLineDetail`, including `LineMessage` and `HeaderMessage`.
+
+- `POST /api/download`
+  Runs the download/import workflow for the selected site.
+
+- `POST /api/process`
+  Accepts selected `InvoiceHeaderID` values and calls `dbo.hmlPlusOneProcessInvoice` once per selected document.
+
+- `POST /api/lock/acquire`, `POST /api/lock/heartbeat`, and `POST /api/lock/release`
+  Manage the application lock in `dbo.hmlPlusOneAppLock`.
+
+### Application Lock
+
+The web app uses `dbo.hmlPlusOneAppLock` to prevent two active users from processing the same site workflow at the same time.
+
+The lock row stores:
+
+- app name
+- lock ID
+- site
+- user name
+- machine name
+- acquired date/time
+- last heartbeat date/time
+
+If a previous session leaves a lock behind, the same user on the same machine can reclaim the lock. An administrator can also clear a stuck lock with:
+
+```sql
+DELETE dbo.hmlPlusOneAppLock
+WHERE AppName = 'PlusOneWeb';
+```
+
+Run this in the affected site database.
+
+## Runtime Scripts
+
+### `PlusOnePython/plusone.py`
+
+Shared integration engine.
 
 Responsibilities:
 
@@ -382,54 +483,32 @@ Responsibilities:
 - validate file contents
 - bulk load line staging rows
 - call the batch header staging procedure
-- log messages
-- archive processed source files
-
-### `Download-NZ.ps1` and `Download-AU.ps1`
-
-Thin wrappers for the shared download/import engine.
-
-Responsibilities:
-
-- call `PlusOne-Download-Import.ps1` with the correct site parameter
-
-### `PlusOne-Extract.ps1`
-
-Shared outbound extract engine.
-
-Responsibilities:
-
-- define supported SQL extracts
+- define supported outbound extracts
 - execute extract queries
-- write CSV output files
-- log extract activity
+- write outbound CSV files
+- upload outbound files to SFTP
+- write operational messages
+- archive processed files
 
-### `Extract-NZ.ps1` and `Extract-AU.ps1`
+### `PlusOnePython/plusone_web.py`
 
-Thin wrappers for the shared extract engine.
-
-Responsibilities:
-
-- call `PlusOne-Extract.ps1` with the correct site parameter
-
-### `PlusOne-Upload.ps1`
-
-Shared outbound upload engine.
+Production web service and UI host.
 
 Responsibilities:
 
-- scan upload folders
-- upload matching files to SFTP
-- write success or failure messages
-- archive uploaded files
+- serve the browser UI from `PlusOneWeb`
+- expose document and line API endpoints
+- run download/import from the web UI
+- process selected invoice headers one at a time
+- manage application locking
 
-### `Upload-NZ.ps1` and `Upload-AU.ps1`
+### Compiled PowerShell Helpers
 
-Thin wrappers for the shared upload engine.
+The compiled folder includes helper scripts used to launch packaged workflows:
 
-Responsibilities:
-
-- call `PlusOne-Upload.ps1` with the correct site parameter
+- `PlusOnePython/Compiled/Run-PlusOneWeb.ps1`
+- `PlusOnePython/Compiled/Run-PlusOne.ps1`
+- `PlusOnePython/Compiled/Run-ExtractUpload.ps1`
 
 ## Status Model
 
@@ -442,11 +521,16 @@ The staging tables currently use these status meanings:
 
 These values are surfaced in both views with human-readable descriptions.
 
+The UI displays the status description as a badge. If the row has an error message, hovering over the status badge opens an in-app tooltip:
+
+- header badge tooltip: `HeaderMessage`
+- line badge tooltip: `LineMessage`, falling back to `HeaderMessage`
+
 ## Error Handling Model
 
 ### Import Errors
 
-Handled in PowerShell before staging completes.
+Handled in Python before staging completes.
 
 Examples:
 
@@ -463,32 +547,48 @@ Result:
 
 ### Processing Errors
 
-Handled in `dbo.hmlPlusOneProcessInvoiceHeader`.
+Handled in `dbo.hmlPlusOneProcessInvoice`.
 
 Examples:
 
 - duplicate document number already in GP
 - missing supplier
-- blank or invalid currency setup
-- missing GL account
+- blank vendor tax schedule
+- blank or invalid vendor currency setup
+- blank company functional currency setup
+- missing or blank GL account on one or more lines
 - GP eConnect or ta procedure failures
 
 Result:
 
-- SQL transaction rolls back
+- GP transaction work rolls back when a failure occurs after GP creation begins
 - header status becomes `Error`
-- offending line is marked `Error` when identifiable
+- pre-validation line account errors are written to every invalid line before GP creation begins
+- the header message combines all pre-validation line account messages into one summary
+- processing-time line failures mark the offending line when identifiable
 - error text is stored in `HeaderMessage` and/or `LineMessage`
 - audit message is written to `hmlPlusOneMessages`
 
+### Currency And Tax Handling
+
+Currency and tax setup is driven by GP vendor/company setup:
+
+- vendor currency comes from `PM00200.CURNCYID`
+- vendor tax schedule comes from `PM00200.TAXSCHID`
+- company functional currency comes from `MC40000.FUNLCURR`
+
+The processing procedure uses the normal distribution path when the PM transaction currency matches the company functional currency. It uses the multicurrency distribution path when the PM transaction currency differs from the company functional currency.
+
+The procedure does not hardcode NZ or AU tax schedules. If `PM00200.TAXSCHID` is blank, processing stops with a header error before GP transaction creation.
+
 ### Upload Errors
 
-Handled in `PlusOne-Upload.ps1`.
+Handled in `PlusOnePython/plusone.py`.
 
 Examples:
 
 - no connection to SFTP
-- WinSCP failures
+- SFTP transfer failures
 - file transfer failures
 
 Result:
@@ -506,7 +606,7 @@ Each site can write:
 - extract log
 - upload log
 
-Logs are plain text PowerShell log files written to the configured paths in `PlusOneConfig.json`.
+Logs are plain text log files written to the configured paths in `PlusOneConfig.json`.
 
 ### Archives
 
@@ -527,6 +627,7 @@ It is not intended to run outbound extract or upload jobs.
 Primary action:
 
 - download and import invoices for the selected site
+- process selected ready/error invoice headers into Dynamics GP
 
 ### Header Window
 
@@ -553,6 +654,12 @@ Suggested supporting actions:
 
 - refresh
 - view lines
+- process selected
+
+Error behavior:
+
+- header status shows a tooltip when `HeaderMessage` has a value
+- line error count and first error line are provided by the header view
 
 ### Line Detail Window
 
@@ -566,6 +673,11 @@ Required fields:
 - line value excluding GST shown as amount
 - line description
 - line status
+
+Error behavior:
+
+- line status shows a tooltip when `LineMessage` has a value
+- if no line message exists but the header has a message, the line status tooltip can fall back to the header message
 
 ### Message Window
 
@@ -583,21 +695,25 @@ Suggested purpose:
 
 ### Inbound
 
-1. User or schedule runs `Download-NZ.ps1` or `Download-AU.ps1`.
-2. The shared download/import script downloads invoice CSV files.
+1. User opens the web application or runs the integration helper.
+2. The shared Python download/import workflow downloads invoice CSV files.
 3. The script validates and bulk loads lines into `hmlPlusOneInvoiceLine`.
 4. The script calls `hmlPlusOneStageImportedBatch`.
 5. Header rows are created in `hmlPlusOneInvoiceHeader`.
-6. The GP user reviews staged invoices in the assumed GP header window.
-7. The user processes one invoice by calling `hmlPlusOneProcessInvoiceHeader`.
-8. SQL creates the GP PM transaction and updates staging status.
-9. Errors are shown back to the user through the assumed GP browse and drilldown views.
+6. The GP user launches the PlusOne web application.
+7. The user reviews staged invoices in the header grid.
+8. The user selects one or more processable invoices.
+9. The web app calls `/api/process`.
+10. `/api/process` calls `hmlPlusOneProcessInvoice` once per selected invoice header.
+11. SQL pre-validates the invoice and, if valid, creates the GP PM transaction.
+12. SQL updates staging status, voucher references, and error messages.
+13. Errors are shown back through header and line status tooltips.
 
 ### Outbound
 
-1. User or schedule runs `Extract-NZ.ps1` or `Extract-AU.ps1`.
+1. User or schedule runs the extract workflow through `PlusOnePython/plusone.py` or `Run-ExtractUpload.ps1`.
 2. The shared extract script writes CSV files to the local upload folder.
-3. User or schedule runs `Upload-NZ.ps1` or `Upload-AU.ps1`.
+3. User or schedule runs the upload workflow through `PlusOnePython/plusone.py` or `Run-ExtractUpload.ps1`.
 4. The shared upload script sends files to the PlusOne SFTP inbound folder.
 5. Success or failure is logged and the source file is archived.
 
@@ -610,34 +726,51 @@ Recommended SQL deployment order:
 3. `table hmlPlusOneInvoiceHeader.sql`
 4. `table hmlPlusOneInvoiceLine.sql`
 5. `proc hmlPlusOneStageImportedBatch.txt`
-6. `proc hmlPlusOneProcessInvoiceHeader.txt`
+6. `proc hmlPlusOneProcessInvoice.txt`
 7. `proc hmlPlusOneCreateNonPOInvoice.txt`
 8. `view hmlPlusOneInvoiceHeader.sql`
 9. `view hmlPlusOneInvoiceLineDetail.sql`
 
 Recommended script deployment:
 
-1. `PlusOneConfig.json.template`
-2. `PlusOne-Download-Import.ps1`
-3. `PlusOne-Extract.ps1`
-4. `PlusOne-Upload.ps1`
-5. wrapper scripts for NZ and AU
-6. site-specific `PlusOneConfig.json`
+1. `PlusOnePython/PlusOneConfig.local.template.json`
+2. site-specific `PlusOnePython/PlusOneConfig.json`
+3. `PlusOnePython/plusone.py`
+4. `PlusOnePython/plusone_web.py`
+5. `PlusOnePython/PlusOneWeb/index.html`
+6. `PlusOnePython/Build-PlusOneWeb.ps1`
+7. compiled output under `PlusOnePython/Compiled`
+
+Build the web application with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File PlusOnePython\Build-PlusOneWeb.ps1
+```
+
+Launch the compiled web application with:
+
+```powershell
+PlusOnePython\Compiled\PlusOneWeb.exe --config PlusOnePython\Compiled\PlusOneConfig.json --host 127.0.0.1 --port 8091
+```
 
 ## Operational Notes
 
 - The split header/line model is the correct fit for a GP review-and-process screen.
 - `SourceLineNo` is important because it lets the user identify the exact source CSV line that failed.
-- The current process is safest when the GP UI processes one invoice header at a time.
+- The current process is safest when SQL processes one invoice header at a time.
+- The web UI may submit multiple selected invoices, but the backend still calls the processing procedure once per header.
 - The process-all wrapper remains useful for batch operations, but the UI should still expose individual processing and line review.
 - The repository still contains legacy artifacts from the single-table design for reference and transition support.
+- SQL procedure changes are not automatically deployed by rebuilding the web application. Deploy changed `.txt` SQL scripts separately to each site database.
 
 ## Future UI Completion Notes
 
-When the GP UI is finished, it should align to this document by:
+Future UI changes should preserve these patterns:
 
 - using the new header and line views instead of the legacy single table
 - exposing the production header columns listed above
 - showing the matching line rows when a user selects an invoice header
-- using download/import as the only executable integration action in this screen
+- using download/import and selected-document processing as the executable integration actions in this screen
+- preserving one-header-at-a-time backend processing even when multiple headers are selected
+- showing header and line processing messages close to the status fields
 - optionally exposing `hmlPlusOneMessages` as a support inquiry area

@@ -40,7 +40,7 @@ BEGIN
         ;WITH HeaderSource AS (
             SELECT
                 l.ImportBatchID,
-                RTRIM(l.SupplierID) AS SupplierID,
+                RTRIM(UPPER(l.SupplierID)) AS SupplierID,
                 RTRIM(UPPER(l.DocumentNo)) AS DocumentNo,
                 MAX(l.DocumentDate) AS DocumentDate,
                 MAX(l.AccountingValueDate) AS AccountingValueDate,
@@ -50,7 +50,7 @@ BEGIN
             WHERE l.ImportBatchID = @ImportBatchID
             GROUP BY
                 l.ImportBatchID,
-                RTRIM(l.SupplierID),
+                RTRIM(UPPER(l.SupplierID)),
                 RTRIM(UPPER(l.DocumentNo))
         )
         INSERT INTO dbo.hmlPlusOneInvoiceHeader (
@@ -89,7 +89,7 @@ BEGIN
             SELECT 1
             FROM dbo.hmlPlusOneInvoiceHeader h
             WHERE h.ImportBatchID = hs.ImportBatchID
-              AND RTRIM(h.SupplierID) = hs.SupplierID
+              AND RTRIM(UPPER(h.SupplierID)) = hs.SupplierID
               AND RTRIM(h.DocumentNo) = hs.DocumentNo
         );
 
@@ -104,7 +104,7 @@ BEGIN
         INNER JOIN (
             SELECT
                 l.ImportBatchID,
-                RTRIM(l.SupplierID) AS SupplierID,
+                RTRIM(UPPER(l.SupplierID)) AS SupplierID,
                 RTRIM(UPPER(l.DocumentNo)) AS DocumentNo,
                 MAX(l.DocumentDate) AS DocumentDate,
                 MAX(l.AccountingValueDate) AS AccountingValueDate,
@@ -114,16 +114,16 @@ BEGIN
             WHERE l.ImportBatchID = @ImportBatchID
             GROUP BY
                 l.ImportBatchID,
-                RTRIM(l.SupplierID),
+                RTRIM(UPPER(l.SupplierID)),
                 RTRIM(UPPER(l.DocumentNo))
         ) src
             ON h.ImportBatchID = src.ImportBatchID
-           AND RTRIM(h.SupplierID) = src.SupplierID
+           AND RTRIM(UPPER(h.SupplierID)) = src.SupplierID
            AND RTRIM(h.DocumentNo) = src.DocumentNo;
 
         UPDATE l
         SET
-            l.SupplierID = RTRIM(l.SupplierID),
+            l.SupplierID = RTRIM(UPPER(l.SupplierID)),
             l.DocumentNo = RTRIM(UPPER(l.DocumentNo)),
             l.InvoiceHeaderID = h.InvoiceHeaderID,
             l.Status = 0,
@@ -134,7 +134,7 @@ BEGIN
         FROM dbo.hmlPlusOneInvoiceLine l
         INNER JOIN dbo.hmlPlusOneInvoiceHeader h
             ON h.ImportBatchID = l.ImportBatchID
-           AND RTRIM(h.SupplierID) = RTRIM(l.SupplierID)
+           AND RTRIM(UPPER(h.SupplierID)) = RTRIM(UPPER(l.SupplierID))
            AND RTRIM(h.DocumentNo) = RTRIM(UPPER(l.DocumentNo))
         WHERE l.ImportBatchID = @ImportBatchID;
 

@@ -1,14 +1,3 @@
-USE [HMNZL]
-GO
-
-/*
-    Clears the split PlusOne staging tables using TRUNCATE.
-
-    Why the FK drop/recreate is needed:
-    SQL Server will not allow TRUNCATE TABLE on dbo.hmlPlusOneInvoiceHeader
-    while dbo.hmlPlusOneInvoiceLine has a foreign key referencing it.
-*/
-
 SET ANSI_NULLS ON
 GO
 

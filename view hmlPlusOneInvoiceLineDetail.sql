@@ -13,7 +13,7 @@ SELECT
     h.[InvoiceHeaderID],
     l.[InvoiceLineID],
     l.[SourceLineNo],
-    RTRIM(h.[SupplierID]) AS [SupplierID],
+    UPPER(RTRIM(h.[SupplierID])) AS [SupplierID],
     RTRIM(h.[DocumentNo]) AS [DocumentNo],
     h.[DocumentDate],
     h.[AccountingValueDate],

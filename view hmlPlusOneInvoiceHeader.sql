@@ -1,13 +1,11 @@
-USE [HMNZL]
-GO
-
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE OR ALTER VIEW [dbo].[vw_hmlPlusOneInvoiceHeader]
+
+ALTER   VIEW [dbo].[vw_hmlPlusOneInvoiceHeader]
 AS
 SELECT
     h.[InvoiceHeaderID],
@@ -88,7 +86,7 @@ FROM [dbo].[hmlPlusOneInvoiceHeader] h
 LEFT JOIN [dbo].[hmlPlusOneInvoiceLine] l
     ON l.[InvoiceHeaderID] = h.[InvoiceHeaderID]
 LEFT JOIN [dbo].[PM00200] v
-    ON v.[VENDORID] = h.[SupplierID]
+    ON v.[VENDORID] = UPPER(RTRIM(h.[SupplierID]))
 GROUP BY
     h.[InvoiceHeaderID],
     h.[ImportBatchID],
@@ -106,4 +104,3 @@ GROUP BY
     h.[Processed],
     h.[CreatedDateTime],
     h.[LastUpdatedDateTime];
-GO
