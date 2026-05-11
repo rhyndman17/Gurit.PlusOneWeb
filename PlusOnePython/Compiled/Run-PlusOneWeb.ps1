@@ -11,7 +11,9 @@ param (
     [string]$Site = 'NZ',
 
     [string]$HostName = '127.0.0.1',
-    [int]$Port = 8088
+    [int]$Port = 8088,
+
+    [switch]$Foreground
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,11 +41,22 @@ Get-CimInstance Win32_Process |
     Where-Object { $_.ExecutablePath -eq $resolvedExePath } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
-Start-Process -FilePath $exePath -ArgumentList @(
+$arguments = @(
     '--config', $configPath,
     '--host', $HostName,
     '--port', $Port,
     '--site', $Site,
     '--user', $env:USERNAME,
     '--open-browser'
-) -WindowStyle Hidden
+)
+
+if ($Foreground) {
+    & $exePath @arguments
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "PlusOneWeb.exe failed with exit code $exitCode."
+    }
+}
+else {
+    Start-Process -FilePath $exePath -ArgumentList $arguments -WindowStyle Hidden
+}

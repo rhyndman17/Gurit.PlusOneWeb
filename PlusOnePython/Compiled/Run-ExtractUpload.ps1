@@ -2,7 +2,7 @@
 .SYNOPSIS
     Runs PlusOne extract and upload for NZ and AU.
 .DESCRIPTION
-    Wrapper for plusone.exe. Keep this script in the same folder as plusone.exe
+    Wrapper for PlusOneWeb.exe. Keep this script in the same folder as PlusOneWeb.exe
     and PlusOneConfig.json.
 .EXAMPLE
     .\Run-ExtractUpload.ps1
@@ -13,9 +13,11 @@
 #>
 
 param (
+    [Parameter(Position = 0)]
     [ValidateSet('NZ', 'AU')]
     [string[]]$Sites = @('NZ', 'AU'),
 
+    [Parameter(Position = 1)]
     [string[]]$Extraction = @('All'),
 
     [datetime]$RunDate = (Get-Date),
@@ -26,6 +28,12 @@ param (
 )
 
 $ErrorActionPreference = 'Stop'
+
+foreach ($name in $Extraction) {
+    if ($name -in @('NZ', 'AU')) {
+        throw "Site '$name' was passed as an extraction. Use -Sites NZ,AU instead of -Sites NZ AU."
+    }
+}
 
 $scriptDir = if ($PSCommandPath) {
     Split-Path -Parent $PSCommandPath
@@ -40,7 +48,7 @@ else {
     throw 'Cannot determine script directory.'
 }
 
-$exePath = Join-Path $scriptDir 'plusone.exe'
+$exePath = Join-Path $scriptDir 'PlusOneWeb.exe'
 $configPath = Join-Path $scriptDir 'PlusOneConfig.json'
 
 if (-not (Test-Path -LiteralPath $exePath)) {

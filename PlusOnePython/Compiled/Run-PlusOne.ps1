@@ -2,7 +2,7 @@
 .SYNOPSIS
     Runs the compiled PlusOne executable.
 .DESCRIPTION
-    Wrapper for plusone.exe. Keep this script in the same folder as plusone.exe
+    Wrapper for PlusOneWeb.exe. Keep this script in the same folder as PlusOneWeb.exe
     and PlusOneConfig.json.
 .EXAMPLE
     .\Run-PlusOne.ps1 -Command download-import -Site NZ
@@ -45,7 +45,7 @@ else {
     throw 'Cannot determine script directory.'
 }
 
-$exePath = Join-Path $scriptDir 'plusone.exe'
+$exePath = Join-Path $scriptDir 'PlusOneWeb.exe'
 $configPath = Join-Path $scriptDir 'PlusOneConfig.json'
 
 if (-not (Test-Path -LiteralPath $exePath)) {
@@ -80,5 +80,5 @@ if ($WhatIf) {
 & $exePath @arguments
 $exitCode = $LASTEXITCODE
 if ($exitCode -ne 0) {
-    throw "plusone.exe failed with exit code $exitCode."
+    throw "PlusOneWeb.exe failed with exit code $exitCode."
 }

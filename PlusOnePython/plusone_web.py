@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 WEB_ROOT = Path(getattr(sys, "_MEIPASS", ROOT)) / "PlusOneWeb"
 VALID_SITES = {"NZ", "AU"}
 APP_LOCK_NAME = "PlusOneWeb"
+INTEGRATION_COMMANDS = {"download-import", "extract", "upload"}
 
 
 def json_value(value: Any) -> Any:
@@ -568,6 +569,10 @@ def is_server_running(host: str, port: int) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if any(arg in INTEGRATION_COMMANDS for arg in argv):
+        return plusone.main(argv)
+
     args = build_parser().parse_args(argv)
     PlusOneWebHandler.config_path = args.config
     PlusOneWebHandler.launch_user = args.user
