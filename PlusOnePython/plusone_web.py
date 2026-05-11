@@ -350,6 +350,34 @@ def process_selected_documents(config_path: Path, site: str, invoice_header_ids:
     }
 
 
+def update_accounting_date(config_path: Path, site: str, invoice_header_id: int, accounting_date: str) -> dict[str, Any]:
+    try:
+        parsed_date = datetime.strptime(accounting_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("Accounting date must be in YYYY-MM-DD format.")
+
+    site_config = plusone.load_site_config(config_path, site)
+    with plusone.sql_connection(site_config) as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+UPDATE dbo.hmlPlusOneInvoiceHeader
+SET
+    AccountingValueDate = ?,
+    LastUpdatedDateTime = GETDATE()
+WHERE InvoiceHeaderID = ?
+  AND Status IN (0, 9)
+""",
+            parsed_date,
+            invoice_header_id,
+        )
+        if cursor.rowcount != 1:
+            connection.rollback()
+            raise ValueError("Accounting date can only be changed for Ready or Error invoices.")
+        connection.commit()
+        return {"ok": True, "invoiceHeaderId": invoice_header_id, "accountingValueDate": parsed_date.isoformat()}
+
+
 def cancel_selected_documents(config_path: Path, site: str, invoice_header_ids: list[int], cancelled_by: str) -> dict[str, Any]:
     if not invoice_header_ids:
         raise ValueError("At least one document must be selected.")
@@ -391,6 +419,10 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         print(f"[web] {self.address_string()} - {format % args}", file=sys.stderr)
 
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def send_json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -399,7 +431,6 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(data)
 
@@ -447,7 +478,8 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path not in {"/api/download", "/api/process", "/api/cancel", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"}:
+        update_accounting_date_match = re.fullmatch(r"/api/documents/(\d+)/accounting-date", parsed.path)
+        if parsed.path not in {"/api/download", "/api/process", "/api/cancel", "/api/lock/acquire", "/api/lock/heartbeat", "/api/lock/release"} and not update_accounting_date_match:
             self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint.")
             return
 
@@ -481,6 +513,13 @@ class PlusOneWebHandler(SimpleHTTPRequestHandler):
 
             if not verify_app_lock(self.config_path, site, str(payload.get("lockId") or "")):
                 self.send_error_json(HTTPStatus.CONFLICT, "The PlusOne application lock is not held by this session.")
+                return
+
+            if update_accounting_date_match:
+                invoice_header_id = int(update_accounting_date_match.group(1))
+                accounting_date = str(payload.get("accountingDate") or "")
+                result = update_accounting_date(self.config_path, site, invoice_header_id, accounting_date)
+                self.send_json(result)
                 return
 
             if parsed.path == "/api/process":

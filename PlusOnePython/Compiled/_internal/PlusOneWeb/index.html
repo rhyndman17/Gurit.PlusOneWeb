@@ -418,6 +418,11 @@
       min-width: 720px;
     }
 
+    .header-table {
+      min-width: 0;
+      table-layout: fixed;
+    }
+
     th,
     td {
       border-bottom: 1px solid var(--border);
@@ -439,6 +444,45 @@
       white-space: nowrap;
     }
 
+    .sort-button {
+      width: 100%;
+      min-height: 22px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font: inherit;
+      font-weight: inherit;
+      text-align: inherit;
+      cursor: pointer;
+    }
+
+    .num .sort-button {
+      justify-content: flex-end;
+    }
+
+    .sort-button::after {
+      content: "";
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      opacity: 0;
+    }
+
+    th.sort-asc .sort-button::after {
+      border-bottom: 6px solid currentColor;
+      opacity: 0.75;
+    }
+
+    th.sort-desc .sort-button::after {
+      border-top: 6px solid currentColor;
+      opacity: 0.75;
+    }
+
     tbody tr {
       cursor: pointer;
     }
@@ -458,6 +502,31 @@
 
     tbody tr.disabled:hover {
       background: transparent;
+    }
+
+    td.empty-message {
+      position: sticky;
+      left: 0;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .date-input {
+      width: 132px;
+      min-height: 30px;
+      border: 1px solid var(--border-strong);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      padding: 4px 7px;
+      font-size: 13px;
+    }
+
+    .date-input:disabled {
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      opacity: 1;
     }
 
     .num {
@@ -700,22 +769,33 @@
             </div>
           </div>
           <div class="grid-wrap">
-            <table aria-label="Invoice headers">
+            <table class="header-table" aria-label="Invoice headers">
+              <colgroup>
+                <col style="width: 3%">
+                <col style="width: 13%">
+                <col style="width: 6%">
+                <col style="width: 17%">
+                <col style="width: 11%">
+                <col style="width: 10%">
+                <col style="width: 12%">
+                <col style="width: 8%">
+                <col style="width: 5%">
+                <col style="width: 7%">
+                <col style="width: 8%">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="select-col"><input type="checkbox" id="selectAllDocuments" aria-label="Select all visible documents"></th>
-                  <th>Source File</th>
-                  <th>Site</th>
-                  <th>Supplier</th>
-                  <th>Supplier Name</th>
-                  <th>Document</th>
-                  <th>Document Date</th>
-                  <th>Accounting Date</th>
-                  <th>PO Number</th>
-                  <th class="num">Subtotal</th>
-                  <th class="num">Tax</th>
-                  <th class="num">Total</th>
-                  <th>Current Status</th>
+                  <th data-sort="sourceFile"><button class="sort-button" type="button">Source File</button></th>
+                  <th data-sort="supplier"><button class="sort-button" type="button">Supplier</button></th>
+                  <th data-sort="supplierName"><button class="sort-button" type="button">Supplier Name</button></th>
+                  <th data-sort="document"><button class="sort-button" type="button">Document</button></th>
+                  <th data-sort="documentDate"><button class="sort-button" type="button">Document Date</button></th>
+                  <th data-sort="accountingDate"><button class="sort-button" type="button">Accounting Date</button></th>
+                  <th class="num" data-sort="subtotal"><button class="sort-button" type="button">Subtotal</button></th>
+                  <th class="num" data-sort="tax"><button class="sort-button" type="button">Tax</button></th>
+                  <th class="num" data-sort="total"><button class="sort-button" type="button">Total</button></th>
+                  <th data-sort="status"><button class="sort-button" type="button">Status</button></th>
                 </tr>
               </thead>
               <tbody id="invoiceRows"></tbody>
@@ -904,6 +984,9 @@
     const selectedDocumentIds = new Set();
     const isProcessable = (invoice) => !["Processing", "Processed", "Cancelled"].includes(invoice.status);
     const isCancellable = (invoice) => ["Ready", "Error"].includes(invoice.status);
+    const isAccountingDateEditable = (invoice) => ["Ready", "Error"].includes(invoice.status);
+    const numericSortFields = new Set(["subtotal", "tax", "total"]);
+    let headerSort = { field: "sourceFile", direction: "asc" };
     let appLock = null;
     let heartbeatTimer = null;
 
@@ -962,6 +1045,15 @@
 
     function formatDate(value) {
       return value ? String(value).slice(0, 10) : "";
+    }
+
+    function accountingDateInput(invoice) {
+      const disabled = isAccountingDateEditable(invoice) ? "" : "disabled";
+      return `<input class="date-input accounting-date-input" type="date" value="${escapeHtml(invoice.accountingDate)}" data-id="${invoice.id}" aria-label="Accounting date for ${escapeHtml(invoice.document)}" ${disabled}>`;
+    }
+
+    function documentDateDisplay(invoice) {
+      return `<input class="date-input" type="date" value="${escapeHtml(invoice.documentDate)}" aria-label="Document date for ${escapeHtml(invoice.document)}" disabled>`;
     }
 
     function currentTimestamp() {
@@ -1133,7 +1225,7 @@
             invoices = [];
             selectedDocumentIds.clear();
             renderSummary([]);
-            invoiceRows.innerHTML = '<tr><td colspan="13">Application is locked by another user.</td></tr>';
+            invoiceRows.innerHTML = '<tr><td colspan="11">Application is locked by another user.</td></tr>';
             clearDocumentLines("Application is locked by another user.");
             return;
           }
@@ -1142,7 +1234,7 @@
         invoices = [];
         selectedDocumentIds.clear();
         renderSummary([]);
-        invoiceRows.innerHTML = '<tr><td colspan="13">Loading documents.</td></tr>';
+        invoiceRows.innerHTML = '<tr><td colspan="11">Loading documents.</td></tr>';
         const payload = await fetchJson(`/api/documents?site=${encodeURIComponent(siteSelect.value)}`);
         invoices = payload.documents.map(mapDocument);
         linesByInvoice.clear();
@@ -1215,11 +1307,43 @@
     function visibleInvoices() {
       const statuses = selectedStatuses();
       const searchText = headerSearch.value.trim().toLowerCase();
-      return invoices.filter((invoice) => {
+      const rows = invoices.filter((invoice) => {
         const siteMatches = invoice.site === siteSelect.value;
         const statusMatches = statuses.includes(invoice.status);
         const searchMatches = !searchText || invoiceSearchText(invoice).includes(searchText);
         return siteMatches && statusMatches && searchMatches;
+      });
+      return sortedInvoices(rows);
+    }
+
+    function sortedInvoices(rows) {
+      if (!headerSort.field) {
+        return rows;
+      }
+
+      const direction = headerSort.direction === "desc" ? -1 : 1;
+      return rows.map((invoice, index) => ({ invoice, index })).sort((left, right) => {
+        const leftValue = left.invoice[headerSort.field];
+        const rightValue = right.invoice[headerSort.field];
+        let comparison;
+        if (numericSortFields.has(headerSort.field)) {
+          comparison = Number(leftValue || 0) - Number(rightValue || 0);
+        } else {
+          comparison = String(leftValue || "").localeCompare(String(rightValue || ""), undefined, {
+            numeric: true,
+            sensitivity: "base"
+          });
+        }
+        return comparison === 0 ? left.index - right.index : comparison * direction;
+      }).map((entry) => entry.invoice);
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll(".header-table th[data-sort]").forEach((header) => {
+        const isActive = header.dataset.sort === headerSort.field;
+        header.classList.toggle("sort-asc", isActive && headerSort.direction === "asc");
+        header.classList.toggle("sort-desc", isActive && headerSort.direction === "desc");
+        header.setAttribute("aria-sort", isActive ? (headerSort.direction === "asc" ? "ascending" : "descending") : "none");
       });
     }
 
@@ -1257,17 +1381,26 @@
         }
       });
       renderSummary(rows);
+      updateSortIndicators();
+      if (!rows.length) {
+        invoiceRows.closest(".grid-wrap").scrollLeft = 0;
+        invoiceRows.innerHTML = '<tr><td class="empty-message" colspan="11">No invoices match the current filters.</td></tr>';
+        updateDocumentSelectionState(rows);
+        selectedDocument.textContent = "No invoice selected";
+        lineCount.textContent = "0 lines";
+        lineRows.innerHTML = '<tr><td class="empty-message" colspan="4">No invoices match the current filters.</td></tr>';
+        return;
+      }
+
       invoiceRows.innerHTML = rows.map((invoice) => `
         <tr data-id="${invoice.id}" class="${isProcessable(invoice) ? "" : "disabled"}" tabindex="0">
           <td class="select-col"><input type="checkbox" class="document-select" value="${invoice.id}" aria-label="Select ${invoice.document}" ${selectedDocumentIds.has(invoice.id) ? "checked" : ""} ${isProcessable(invoice) ? "" : "disabled"}></td>
           <td class="text-clip" title="${invoice.sourceFile || invoice.batch}">${invoice.sourceFile || invoice.batch}</td>
-          <td>${invoice.site}</td>
           <td>${invoice.supplier}</td>
           <td class="text-clip" title="${invoice.supplierName}">${invoice.supplierName}</td>
-          <td>${invoice.document}</td>
-          <td>${invoice.documentDate}</td>
-          <td>${invoice.accountingDate}</td>
-          <td>${invoice.poNumber || "-"}</td>
+          <td class="text-clip" title="${invoice.document}">${invoice.document}</td>
+          <td>${documentDateDisplay(invoice)}</td>
+          <td>${accountingDateInput(invoice)}</td>
           <td class="num">${formatMoney(invoice.subtotal)}</td>
           <td class="num">${formatMoney(invoice.tax)}</td>
           <td class="num">${formatMoney(invoice.total)}</td>
@@ -1284,6 +1417,20 @@
             event.preventDefault();
             selectInvoice(Number(row.dataset.id));
           }
+        });
+      });
+
+      [...invoiceRows.querySelectorAll(".accounting-date-input")].forEach((input) => {
+        input.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+
+        input.addEventListener("keydown", (event) => {
+          event.stopPropagation();
+        });
+
+        input.addEventListener("change", () => {
+          saveAccountingDate(input);
         });
       });
 
@@ -1304,12 +1451,40 @@
         });
       });
 
-      if (rows.length) {
-        selectInvoice(rows[0].id);
-      } else {
-        selectedDocument.textContent = "No invoice selected";
-        lineCount.textContent = "0 lines";
-        lineRows.innerHTML = '<tr><td colspan="4">No invoices match the current filters.</td></tr>';
+      selectInvoice(rows[0].id);
+    }
+
+    async function saveAccountingDate(input) {
+      if (!appLock) {
+        return;
+      }
+
+      const id = Number(input.dataset.id);
+      const invoice = invoices.find((item) => item.id === id);
+      if (!invoice || input.value === invoice.accountingDate) {
+        return;
+      }
+
+      const previousValue = invoice.accountingDate;
+      input.disabled = true;
+      try {
+        const payload = await fetchJson(`/api/documents/${id}/accounting-date`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            site: siteSelect.value,
+            lockId: appLock.lockId,
+            accountingDate: input.value
+          })
+        });
+        invoice.accountingDate = formatDate(payload.accountingValueDate || input.value);
+        input.value = invoice.accountingDate;
+        appendLog(`[${currentTimestamp()}] [INFO] Updated accounting date for ${invoice.document} to ${invoice.accountingDate}`);
+      } catch (error) {
+        input.value = previousValue;
+        appendLog(`[${currentTimestamp()}] [ERROR] ${friendlyFetchError(error)}`);
+      } finally {
+        input.disabled = !isAccountingDateEditable(invoice);
       }
     }
 
@@ -1526,6 +1701,17 @@
     refreshButton.addEventListener("click", loadDocuments);
     siteSelect.addEventListener("change", changeSite);
     headerSearch.addEventListener("input", renderInvoices);
+    document.querySelectorAll(".header-table th[data-sort] .sort-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const field = button.closest("th").dataset.sort;
+        if (headerSort.field === field) {
+          headerSort.direction = headerSort.direction === "asc" ? "desc" : "asc";
+        } else {
+          headerSort = { field, direction: "asc" };
+        }
+        renderInvoices();
+      });
+    });
     window.addEventListener("pagehide", releaseLock);
     window.addEventListener("beforeunload", releaseLock);
 

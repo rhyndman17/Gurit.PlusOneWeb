@@ -290,6 +290,7 @@ BEGIN
             @I_vDOCAMNT = @cDocAmount,
             @I_vCHRGAMNT = @cDocAmount,
             @I_vDOCDATE = @dtDocDate,
+            @I_vPSTGDATE = @dtAccountingDate,
             @I_vTAXSCHID = @sTaxSched,
             @I_vPCHSCHID = @sTaxSched,
             @I_vFRTSCHID = @sTaxSched,

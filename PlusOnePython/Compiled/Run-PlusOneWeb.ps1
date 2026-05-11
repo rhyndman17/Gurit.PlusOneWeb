@@ -34,6 +34,11 @@ if (-not (Test-Path -LiteralPath $configPath)) {
     throw "Configuration file not found: $configPath"
 }
 
+$resolvedExePath = (Resolve-Path -LiteralPath $exePath).Path
+Get-CimInstance Win32_Process |
+    Where-Object { $_.ExecutablePath -eq $resolvedExePath } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
 Start-Process -FilePath $exePath -ArgumentList @(
     '--config', $configPath,
     '--host', $HostName,
