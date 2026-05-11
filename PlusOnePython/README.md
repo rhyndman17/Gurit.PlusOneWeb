@@ -82,6 +82,14 @@ PlusOneWeb.exe --config PlusOneConfig.json --host 127.0.0.1 --port 8088 --site N
 The production UI requires `dbo.hmlPlusOneAppLock` in each site database used by the UI.
 Deploy `table hmlPlusOneAppLock.sql` with the other PlusOne SQL objects.
 
+The production UI includes these review features:
+
+- sortable invoice header grid, defaulting to source file name
+- inline expandable line detail from the document number
+- editable accounting date for `Ready` and `Error` invoices
+- document date displayed in the same date-control format as accounting date
+- selected-document processing and cancellation with the application lock held
+
 Run extraction followed by upload for both sites:
 
 ```powershell

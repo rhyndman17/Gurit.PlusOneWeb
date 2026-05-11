@@ -337,7 +337,7 @@
     .invoice-area {
       min-height: 0;
       display: grid;
-      grid-template-rows: auto auto minmax(var(--line-panel-min), 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       gap: 14px;
       overflow: hidden;
     }
@@ -390,7 +390,7 @@
 
     .header-workspace {
       min-height: var(--header-panel-min);
-      max-height: var(--header-panel-max);
+      max-height: none;
     }
 
     .panel-head {
@@ -487,6 +487,10 @@
       cursor: pointer;
     }
 
+    .header-table tbody tr {
+      cursor: default;
+    }
+
     tbody tr:hover {
       background: #f8fbfd;
     }
@@ -502,6 +506,10 @@
 
     tbody tr.disabled:hover {
       background: transparent;
+    }
+
+    .line-workspace {
+      display: none;
     }
 
     td.empty-message {
@@ -540,6 +548,71 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .document-cell {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .expand-button {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--border-strong);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--muted);
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+      flex: 0 0 auto;
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .expand-button:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    .line-detail-row {
+      cursor: default;
+      background: #fbfcfd;
+    }
+
+    .line-detail-row:hover {
+      background: #fbfcfd;
+    }
+
+    .line-detail-cell {
+      padding: 0;
+    }
+
+    .inline-lines {
+      width: 100%;
+      min-width: 0;
+      border-collapse: collapse;
+    }
+
+    .inline-lines th {
+      position: static;
+      z-index: auto;
+      background: #eef3f6;
+    }
+
+    .inline-lines th,
+    .inline-lines td {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .inline-lines-wrap {
+      max-height: 220px;
+      overflow: auto;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
     }
 
     .badge {
@@ -803,7 +876,7 @@
           </div>
         </section>
 
-        <section class="workspace">
+        <section class="workspace line-workspace" aria-hidden="true">
           <div class="panel-head">
             <h2>Document Lines</h2>
             <div class="detail-meta">
@@ -945,6 +1018,7 @@
     const linesByInvoice = new Map(
       Object.entries(demoLinesByInvoice).map(([key, value]) => [Number(key), value])
     );
+    const lineLoadErrors = new Map();
     invoices = [];
     linesByInvoice.clear();
 
@@ -987,6 +1061,8 @@
     const isAccountingDateEditable = (invoice) => ["Ready", "Error"].includes(invoice.status);
     const numericSortFields = new Set(["subtotal", "tax", "total"]);
     let headerSort = { field: "sourceFile", direction: "asc" };
+    let expandedDocumentId = null;
+    let loadingDocumentId = null;
     let appLock = null;
     let heartbeatTimer = null;
 
@@ -1054,6 +1130,55 @@
 
     function documentDateDisplay(invoice) {
       return `<input class="date-input" type="date" value="${escapeHtml(invoice.documentDate)}" aria-label="Document date for ${escapeHtml(invoice.document)}" disabled>`;
+    }
+
+    function documentCell(invoice) {
+      const expanded = expandedDocumentId === invoice.id;
+      const symbol = expanded ? "-" : "+";
+      const label = expanded ? "Hide lines" : "Show lines";
+      return `
+        <div class="document-cell">
+          <button class="expand-button" type="button" data-id="${invoice.id}" aria-expanded="${expanded}" aria-label="${label} for ${escapeHtml(invoice.document)}">${symbol}</button>
+          <span class="text-clip" title="${escapeHtml(invoice.document)}">${escapeHtml(invoice.document)}</span>
+        </div>
+      `;
+    }
+
+    function lineDetailRow(invoice) {
+      if (expandedDocumentId !== invoice.id) {
+        return "";
+      }
+
+      let content = '<div class="inline-lines-wrap"><table class="inline-lines" aria-label="Invoice lines"><tbody><tr><td colspan="4">Loading document lines.</td></tr></tbody></table></div>';
+      if (linesByInvoice.has(invoice.id)) {
+        const rows = linesByInvoice.get(invoice.id);
+        content = rows.length
+          ? `<div class="inline-lines-wrap">
+              <table class="inline-lines" aria-label="Invoice lines">
+                <thead>
+                  <tr>
+                    <th>Account Code</th>
+                    <th class="num">Amount</th>
+                    <th>Line Description</th>
+                    <th>Line Status</th>
+                  </tr>
+                </thead>
+                <tbody>${rows.map((line) => `
+                  <tr>
+                    <td>${escapeHtml(line.accountCode)}</td>
+                    <td class="num">${formatMoney(line.amount)}</td>
+                    <td class="text-clip" title="${escapeHtml(line.description)}">${escapeHtml(line.description)}</td>
+                    <td>${statusBadge(line.status, line.message)}</td>
+                  </tr>
+                `).join("")}</tbody>
+              </table>
+            </div>`
+          : '<div class="inline-lines-wrap"><table class="inline-lines" aria-label="Invoice lines"><tbody><tr><td colspan="4">No lines found for this document.</td></tr></tbody></table></div>';
+      } else if (lineLoadErrors.has(invoice.id)) {
+        content = `<div class="inline-lines-wrap"><table class="inline-lines" aria-label="Invoice lines"><tbody><tr><td colspan="4">${escapeHtml(lineLoadErrors.get(invoice.id))}</td></tr></tbody></table></div>`;
+      }
+
+      return `<tr class="line-detail-row" data-detail-id="${invoice.id}"><td class="line-detail-cell" colspan="11">${content}</td></tr>`;
     }
 
     function currentTimestamp() {
@@ -1238,11 +1363,14 @@
         const payload = await fetchJson(`/api/documents?site=${encodeURIComponent(siteSelect.value)}`);
         invoices = payload.documents.map(mapDocument);
         linesByInvoice.clear();
+        lineLoadErrors.clear();
+        expandedDocumentId = null;
         selectedDocumentIds.clear();
         renderInvoices();
       } catch (error) {
         invoices = [];
         selectedDocumentIds.clear();
+        expandedDocumentId = null;
         clearDocumentLines("Documents could not be loaded.");
         appendLog(`[${new Date().toISOString().slice(0, 19).replace("T", " ")}] [ERROR] ${friendlyFetchError(error)}`);
         renderInvoices();
@@ -1254,6 +1382,8 @@
       setUrlSite(siteSelect.value);
       selectedDocumentIds.clear();
       linesByInvoice.clear();
+      lineLoadErrors.clear();
+      expandedDocumentId = null;
       headerSearch.value = "";
       initializeLog();
       loadDocuments();
@@ -1266,6 +1396,7 @@
       const payload = await fetchJson(`/api/documents/${invoiceId}/lines?site=${encodeURIComponent(siteSelect.value)}`);
       const lines = payload.lines.map(mapLine);
       linesByInvoice.set(invoiceId, lines);
+      lineLoadErrors.delete(invoiceId);
       return lines;
     }
 
@@ -1374,6 +1505,9 @@
 
     function renderInvoices() {
       const rows = visibleInvoices();
+      if (expandedDocumentId && !rows.some((invoice) => invoice.id === expandedDocumentId)) {
+        expandedDocumentId = null;
+      }
       selectedDocumentIds.forEach((id) => {
         const invoice = invoices.find((item) => item.id === id);
         if (invoice && !isProcessable(invoice)) {
@@ -1393,12 +1527,12 @@
       }
 
       invoiceRows.innerHTML = rows.map((invoice) => `
-        <tr data-id="${invoice.id}" class="${isProcessable(invoice) ? "" : "disabled"}" tabindex="0">
+        <tr data-id="${invoice.id}" class="${expandedDocumentId === invoice.id ? "selected" : ""} ${isProcessable(invoice) ? "" : "disabled"}">
           <td class="select-col"><input type="checkbox" class="document-select" value="${invoice.id}" aria-label="Select ${invoice.document}" ${selectedDocumentIds.has(invoice.id) ? "checked" : ""} ${isProcessable(invoice) ? "" : "disabled"}></td>
           <td class="text-clip" title="${invoice.sourceFile || invoice.batch}">${invoice.sourceFile || invoice.batch}</td>
           <td>${invoice.supplier}</td>
           <td class="text-clip" title="${invoice.supplierName}">${invoice.supplierName}</td>
-          <td class="text-clip" title="${invoice.document}">${invoice.document}</td>
+          <td>${documentCell(invoice)}</td>
           <td>${documentDateDisplay(invoice)}</td>
           <td>${accountingDateInput(invoice)}</td>
           <td class="num">${formatMoney(invoice.subtotal)}</td>
@@ -1406,17 +1540,13 @@
           <td class="num">${formatMoney(invoice.total)}</td>
           <td>${statusBadge(invoice.status, invoice.message)}</td>
         </tr>
+        ${lineDetailRow(invoice)}
       `).join("");
 
-      [...invoiceRows.querySelectorAll("tr")].forEach((row) => {
-        row.addEventListener("click", () => {
-          selectInvoice(Number(row.dataset.id));
-        });
-        row.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            selectInvoice(Number(row.dataset.id));
-          }
+      [...invoiceRows.querySelectorAll(".expand-button")].forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleDocumentLines(Number(button.dataset.id));
         });
       });
 
@@ -1451,7 +1581,33 @@
         });
       });
 
-      selectInvoice(rows[0].id);
+    }
+
+    async function toggleDocumentLines(id) {
+      if (expandedDocumentId === id) {
+        expandedDocumentId = null;
+        renderInvoices();
+        return;
+      }
+
+      expandedDocumentId = id;
+      renderInvoices();
+      if (linesByInvoice.has(id) || loadingDocumentId === id) {
+        return;
+      }
+
+      loadingDocumentId = id;
+      try {
+        await loadLines(id);
+      } catch (error) {
+        lineLoadErrors.set(id, friendlyFetchError(error));
+        appendLog(`[${currentTimestamp()}] [ERROR] ${friendlyFetchError(error)}`);
+      } finally {
+        loadingDocumentId = null;
+        if (expandedDocumentId === id) {
+          renderInvoices();
+        }
+      }
     }
 
     async function saveAccountingDate(input) {

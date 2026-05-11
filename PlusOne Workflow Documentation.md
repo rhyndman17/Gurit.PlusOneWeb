@@ -221,6 +221,27 @@ The web UI presents cancellation as a separate action from processing:
 - the user must confirm before `/api/cancel` is called
 - cancelled records remain available through the `Cancelled` status filter
 
+### 7. Web Review UI
+
+The web UI uses the invoice header grid as the main review surface.
+
+Current header-grid behavior:
+
+- headers are sorted by source file name by default
+- users can sort visible columns by clicking the column header
+- the visible header grid omits site and PO number to keep the review surface compact
+- the accounting date is editable for `Ready` and `Error` invoices
+- the document date is displayed using the same browser date format as accounting date, but remains read-only
+- invoice lines are shown inline by expanding the document number instead of using a separate line grid
+
+Inline line detail behavior:
+
+- clicking the expand control beside the document number loads lines on demand
+- lines are retrieved from `GET /api/documents/{InvoiceHeaderID}/lines`
+- line data is cached in the browser once loaded
+- only visible matching invoice rows are shown after filtering and sorting
+- header and line status badges continue to expose error messages through tooltips
+
 ## Outbound Extract And Upload Workflow
 
 ### 1. Extract Generation
@@ -325,7 +346,7 @@ Behavior:
 - bulk loaded by `PlusOnePython/plusone.py`
 - grouped into headers by `dbo.hmlPlusOneStageImportedBatch`
 - read by `dbo.hmlPlusOneProcessInvoice` to build GP distributions
-- shown to the user through the line detail view
+- shown to the user through expandable line detail rows in the header grid
 
 ### `dbo.vw_hmlPlusOneInvoiceHeader`
 
@@ -360,8 +381,8 @@ Provides:
 
 Recommended use:
 
-- error review window
-- line inquiry window
+- expandable line detail under the selected header row
+- error review and line inquiry
 
 ### `dbo.hmlPlusOneStageImportedBatch`
 
@@ -485,6 +506,9 @@ The web application exposes these main endpoints:
 - `POST /api/process`
   Accepts selected `InvoiceHeaderID` values and calls `dbo.hmlPlusOneProcessInvoice` once per selected document.
 
+- `POST /api/documents/{InvoiceHeaderID}/accounting-date`
+  Updates `dbo.hmlPlusOneInvoiceHeader.AccountingValueDate` for `Ready` or `Error` invoices. The request requires the current application lock.
+
 - `POST /api/cancel`
   Accepts selected cancellable `InvoiceHeaderID` values and calls `dbo.hmlPlusOneCancelInvoice` once per selected document.
 
@@ -543,6 +567,7 @@ Responsibilities:
 - expose document and line API endpoints
 - run download/import from the web UI
 - process selected invoice headers one at a time
+- update editable accounting dates before processing
 - manage application locking
 
 ### Compiled PowerShell Helpers
@@ -568,7 +593,7 @@ These values are surfaced in both views with human-readable descriptions.
 The UI displays the status description as a badge. If the row has an error message, hovering over the status badge opens an in-app tooltip:
 
 - header badge tooltip: `HeaderMessage`
-- line badge tooltip: `LineMessage`, falling back to `HeaderMessage`
+- expanded line badge tooltip: `LineMessage`, falling back to `HeaderMessage`
 
 The `Cancelled` filter option is available but not selected by default. Cancelled badges use a neutral grey style so they are visually distinct from actionable error rows.
 
@@ -755,14 +780,17 @@ Suggested purpose:
 4. The script calls `hmlPlusOneStageImportedBatch`.
 5. Header rows are created in `hmlPlusOneInvoiceHeader`.
 6. The GP user launches the PlusOne web application.
-7. The user reviews staged invoices in the header grid.
-8. The user selects one or more processable invoices.
-9. The web app calls `/api/process`.
-10. `/api/process` calls `hmlPlusOneProcessInvoice` once per selected invoice header.
-11. SQL pre-validates the invoice and, if valid, creates the GP PM transaction.
-12. SQL updates staging status, voucher references, and error messages.
-13. Errors are shown back through header and line status tooltips.
-14. If a user cancels a `Ready` or `Error` invoice, `/api/cancel` marks the header and lines as `Cancelled` and records who cancelled it in `HeaderMessage`.
+7. The user reviews staged invoices in the sortable header grid.
+8. The user expands a document number when line detail is needed.
+9. If needed, the user edits `AccountingValueDate` before processing.
+10. The user selects one or more processable invoices.
+11. The web app calls `/api/process`.
+12. `/api/process` calls `hmlPlusOneProcessInvoice` once per selected invoice header.
+13. SQL pre-validates the invoice and, if valid, creates the GP PM transaction.
+14. The document date is used as the GP document date, and `AccountingValueDate` is used as the GP posting date.
+15. SQL updates staging status, voucher references, and error messages.
+16. Errors are shown back through header and expanded line status tooltips.
+17. If a user cancels a `Ready` or `Error` invoice, `/api/cancel` marks the header and lines as `Cancelled` and records who cancelled it in `HeaderMessage`.
 
 ### Outbound
 
@@ -815,6 +843,8 @@ PlusOnePython\Compiled\PlusOneWeb.exe --config PlusOnePython\Compiled\PlusOneCon
 - `SourceLineNo` is important because it lets the user identify the exact source CSV line that failed.
 - The current process is safest when SQL processes one invoice header at a time.
 - The web UI may submit multiple selected invoices, but the backend still calls the processing procedure once per header.
+- The web UI uses inline expandable line detail rows rather than a separate line grid.
+- `AccountingValueDate` is editable in the web UI for `Ready` and `Error` invoices and is used as the GP posting date.
 - The process-all wrapper remains useful for batch operations, but the UI should still expose individual processing and line review.
 - The repository still contains legacy artifacts from the single-table design for reference and transition support.
 - SQL procedure changes are not automatically deployed by rebuilding the web application. Deploy changed `.txt` SQL scripts separately to each site database.
